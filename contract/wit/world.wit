@@ -1,0 +1,57 @@
+/// TrustDrop — verifiable social-aid disbursement TEE contract.
+///
+/// Three exported functions:
+///   - check-eligibility:    verify one recipient against policy (no PII out)
+///   - prepare-batch:        build a disbursement batch within budget (no PII out)
+///   - execute-disbursement: call payment provider via placeholders (PII stays in enclave)
+///
+/// Host capabilities used:
+///   - tenant-context: read tenant DID at runtime for KV map names
+///   - logging:        structured logs inside the enclave
+///   - kv-store:       recipients, policy, dedup ledger, secrets
+///   - http:           eligibility checks (no PII)
+///   - http-with-placeholders: disbursement calls (PII via {{profile.*}})
+package z:tenant-bansos@0.1.0;
+
+world tenant-bansos {
+    import host:tenant/tenant-context@1.0.0;
+    import host:interfaces/logging@2.1.0;
+    import host:interfaces/kv-store@2.1.0;
+    import host:interfaces/http@2.1.0;
+    import host:interfaces/http-with-placeholders@2.1.0;
+
+    export contracts;
+}
+
+interface contracts {
+    /// Standard 3-field envelope used by all T3N tenant contracts.
+    /// `input`        — JSON-serialized request payload specific to the function.
+    /// `user-profile` — reserved (always None for tenant contracts).
+    /// `context`      — JSON-serialized DynamicContext (node-minted, trusted).
+    record generic-input {
+        input:        option<list<u8>>,
+        user-profile: option<list<u8>>,
+        context:      option<list<u8>>,
+    }
+
+    /// Verify eligibility of a single recipient against policy rules.
+    /// Input  (JSON): { recipient_did }
+    /// Output (JSON): { eligible: bool, reason_code: string, recipient_did: string }
+    /// No PII crosses the WIT boundary.
+    check-eligibility: func(req: generic-input) -> result<list<u8>, string>;
+
+    /// Build a disbursement batch: iterate eligible recipients, enforce
+    /// deduplication and budget constraints.
+    /// Input  (JSON): { period, policy: { eligible_regions[], eligible_income_bracket, amount_per_recipient, total_budget } }
+    /// Output (JSON): { approved: [{ recipient_did, amount }], total_amount, count }
+    /// No PII crosses the WIT boundary.
+    prepare-batch: func(req: generic-input) -> result<list<u8>, string>;
+
+    /// Execute disbursement for approved recipients via mock payment provider.
+    /// Uses http-with-placeholders so PII (bank account, name) is resolved
+    /// inside the enclave and never enters WASM memory.
+    /// Input  (JSON): { period, approved: [{ recipient_did, amount }], provider_url }
+    /// Output (JSON): { results: [{ recipient_did, status, tx_id }], success_count, fail_count }
+    /// No PII crosses the WIT boundary.
+    execute-disbursement: func(req: generic-input) -> result<list<u8>, string>;
+}

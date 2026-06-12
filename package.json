@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "contract:build": "cd contract && cargo build --target wasm32-wasip2 --release",
+    "contract:test": "cd contract && cargo test --lib",
+    "provision": "npx tsx scripts/provision.ts"
   },
   "dependencies": {
     "@terminal3/t3n-sdk": "^3.5.2",

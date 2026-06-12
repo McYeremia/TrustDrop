@@ -1,0 +1,14 @@
+C:\06. Hackathon\02. T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\deps\serde-b1d454238a4777ad.d: C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\06.\ Hackathon\02.\ T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\build\serde-7f6b800e7666cca2\out/private.rs
+
+C:\06. Hackathon\02. T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\deps\libserde-b1d454238a4777ad.rlib: C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\06.\ Hackathon\02.\ T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\build\serde-7f6b800e7666cca2\out/private.rs
+
+C:\06. Hackathon\02. T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\deps\libserde-b1d454238a4777ad.rmeta: C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\06.\ Hackathon\02.\ T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\build\serde-7f6b800e7666cca2\out/private.rs
+
+C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\yerem\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\06.\ Hackathon\02.\ T3AgentDev\trustdrop\contract\target\wasm32-wasip2\debug\build\serde-7f6b800e7666cca2\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\06. Hackathon\\02. T3AgentDev\\trustdrop\\contract\\target\\wasm32-wasip2\\debug\\build\\serde-7f6b800e7666cca2\\out

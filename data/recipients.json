@@ -1,0 +1,110 @@
+[
+  {
+    "recipient_did": "did:t3n:r001",
+    "legal_name": "Budi Santoso",
+    "nik": "3201010101010001",
+    "bank_account": "1234567890",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "head_of_family"
+  },
+  {
+    "recipient_did": "did:t3n:r002",
+    "legal_name": "Siti Aminah",
+    "nik": "3201010101010002",
+    "bank_account": "2345678901",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "single_parent"
+  },
+  {
+    "recipient_did": "did:t3n:r003",
+    "legal_name": "Ahmad Hidayat",
+    "nik": "3201010101010003",
+    "bank_account": "3456789012",
+    "region_code": "BDG",
+    "income_bracket": "low",
+    "household_status": "head_of_family"
+  },
+  {
+    "recipient_did": "did:t3n:r004",
+    "legal_name": "Dewi Lestari",
+    "nik": "3201010101010004",
+    "bank_account": "4567890123",
+    "region_code": "JKT",
+    "income_bracket": "medium",
+    "household_status": "married"
+  },
+  {
+    "recipient_did": "did:t3n:r005",
+    "legal_name": "Eko Prasetyo",
+    "nik": "3201010101010005",
+    "bank_account": "5678901234",
+    "region_code": "SBY",
+    "income_bracket": "low",
+    "household_status": "head_of_family"
+  },
+  {
+    "recipient_did": "did:t3n:r006",
+    "legal_name": "Fatimah Zahra",
+    "nik": "3201010101010006",
+    "bank_account": "6789012345",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "elderly"
+  },
+  {
+    "recipient_did": "did:t3n:r007",
+    "legal_name": "Gunawan Wibowo",
+    "nik": "3201010101010007",
+    "bank_account": "7890123456",
+    "region_code": "BDG",
+    "income_bracket": "medium",
+    "household_status": "married"
+  },
+  {
+    "recipient_did": "did:t3n:r008",
+    "legal_name": "Hani Puspita",
+    "nik": "3201010101010008",
+    "bank_account": "8901234567",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "single_parent"
+  },
+  {
+    "recipient_did": "did:t3n:r009",
+    "legal_name": "Irfan Maulana",
+    "nik": "3201010101010009",
+    "bank_account": "9012345678",
+    "region_code": "SMG",
+    "income_bracket": "low",
+    "household_status": "disabled"
+  },
+  {
+    "recipient_did": "did:t3n:r010",
+    "legal_name": "Jamilah Nurhayati",
+    "nik": "3201010101010010",
+    "bank_account": "0123456789",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "elderly"
+  },
+  {
+    "recipient_did": "did:t3n:r011",
+    "legal_name": "Kukuh Raharjo",
+    "nik": "3201010101010011",
+    "bank_account": "1122334455",
+    "region_code": "SBY",
+    "income_bracket": "medium",
+    "household_status": "married"
+  },
+  {
+    "recipient_did": "did:t3n:r012",
+    "legal_name": "Linda Permata",
+    "nik": "3201010101010012",
+    "bank_account": "2233445566",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "head_of_family"
+  }
+]

@@ -7,8 +7,8 @@
  *   1. Connect to T3N testnet, authenticate, get tenantDid
  *   2. Build the contract WASM (cargo build)
  *   3. Register the contract
- *   4. Create KV maps: secrets, recipients, policy, disbursed-<period>, audit
- *   5. Seed dummy recipients from data/recipients.json
+ *   4. Create KV maps: secrets, eligibility (no PII), policy, disbursed-<period>, audit
+ *   5. Seed PII-free eligibility records from data/recipients.json (projection only)
  *   6. Seed default policy
  *   7. Self-grant egress for all 3 functions
  *
@@ -38,7 +38,7 @@ if (!T3N_API_KEY || T3N_API_KEY === "isi_dengan_developer_key_dari_claim_page") 
 }
 
 const CONTRACT_TAIL = "bansos-contracts";
-const CONTRACT_VERSION = "0.1.0"; // bump on each re-register
+const CONTRACT_VERSION = "0.2.1"; // bump on each re-register (0.2.x = Temuan #3: eligibility map no PII)
 const DISBURSEMENT_PERIOD = "2026-06";
 
 async function main() {
@@ -86,11 +86,11 @@ async function main() {
 
   let contractId: number;
   try {
-    const result = await tenant.contracts.register({
+    const result = (await tenant.contracts.register({
       tail: CONTRACT_TAIL,
       version: CONTRACT_VERSION,
       wasm: wasmBytes,
-    });
+    })) as { contract_id: number };
     contractId = result.contract_id;
     const tenantId = tenantDid.slice("did:t3n:".length);
     console.log(`   ✅ Registered z:${tenantId}:${CONTRACT_TAIL} → contractId: ${contractId}`);
@@ -108,7 +108,7 @@ async function main() {
 
   // ─── 4. Create KV maps ───
   console.log("4️⃣  Creating KV maps...");
-  const maps = ["secrets", "recipients", "policy", `disbursed-${DISBURSEMENT_PERIOD}`, "audit"];
+  const maps = ["secrets", "eligibility", "policy", `disbursed-${DISBURSEMENT_PERIOD}`, "audit"];
 
   for (const tail of maps) {
     try {
@@ -130,29 +130,60 @@ async function main() {
     }
   }
 
-  // ─── 5. Seed recipients ───
-  console.log("5️⃣  Seeding recipient data...");
+  // ─── 4b. Realign map ACL to current contractId (Temuan #T2-7) ───
+  // Re-register (bump version) → NEW contractId. Maps created for the OLD id
+  // deny the new contract ("cannot read map"); `maps.create` is skipped when a
+  // map exists so its ACL goes stale. `maps.update` repairs the ACL without
+  // deleting data. Idempotent — safe to run every time.
+  if (contractId > 0) {
+    console.log("4️⃣b Realigning map ACL to current contractId...");
+    for (const tail of maps) {
+      try {
+        await tenant.maps.update(tail, {
+          readers: { only: [contractId] },
+          writers: { only: [contractId] },
+        });
+        console.log(`   ✅ ACL ${tail} → contract ${contractId}`);
+      } catch (e: unknown) {
+        console.log(`   ⚠️  ACL ${tail}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+
+  // ─── 5. Seed PII-free eligibility records ───
+  // The contract reads ONLY this map. We project out region_code/income_bracket
+  // and DELIBERATELY drop all PII (bank_account/legal_name/nik). PII lives in
+  // each recipient's own T3N profile, resolved via {{profile.*}} at disbursement.
+  console.log("5️⃣  Seeding PII-free eligibility records...");
   const recipientsRaw = await readFile("data/recipients.json", "utf-8");
-  const recipients = JSON.parse(recipientsRaw);
+  const recipients = JSON.parse(recipientsRaw) as Array<{
+    recipient_did: string;
+    region_code: string;
+    income_bracket: string;
+  }>;
 
   // Build index (list of all DIDs)
-  const recipientDids = recipients.map((r: { recipient_did: string }) => r.recipient_did);
+  const recipientDids = recipients.map((r) => r.recipient_did);
   await tenant.executeControl("map-entry-set", {
-    map_name: tenant.canonicalName("recipients"),
+    map_name: tenant.canonicalName("eligibility"),
     key: "_index",
     value: JSON.stringify(recipientDids),
   });
-  console.log(`   ✅ Seeded recipients index (${recipientDids.length} entries)`);
+  console.log(`   ✅ Seeded eligibility index (${recipientDids.length} entries)`);
 
-  // Seed each recipient profile
-  for (const recipient of recipients) {
+  // Seed each PII-free eligibility record
+  for (const r of recipients) {
     await tenant.executeControl("map-entry-set", {
-      map_name: tenant.canonicalName("recipients"),
-      key: recipient.recipient_did,
-      value: JSON.stringify(recipient),
+      map_name: tenant.canonicalName("eligibility"),
+      key: r.recipient_did,
+      value: JSON.stringify({
+        recipient_did: r.recipient_did,
+        region_code: r.region_code,
+        income_bracket: r.income_bracket,
+      }),
     });
   }
-  console.log(`   ✅ Seeded ${recipients.length} recipient profiles`);
+  console.log(`   ✅ Seeded ${recipients.length} eligibility records (no PII)`);
 
   // ─── 6. Seed default policy ───
   console.log("6️⃣  Seeding default policy...");
@@ -200,7 +231,7 @@ async function main() {
             scriptName: TENANT_SCRIPT,
             versionReq: scriptVersion,
             functions: ["check-eligibility", "prepare-batch", "execute-disbursement"],
-            allowedHosts: ["localhost:3000", "127.0.0.1:3000"],
+            allowedHosts: (process.env.MOCK_PROVIDER_HOST ?? "httpbin.org").split(","), // hostname MURNI (Temuan #T2-6); loopback diblokir TEE
           }],
         }],
       },

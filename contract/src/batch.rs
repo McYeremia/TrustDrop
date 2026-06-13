@@ -1,9 +1,10 @@
 //! prepare_batch: build a disbursement batch within budget & dedup constraints.
 //!
-//! Scans the `recipients` KV map, runs eligibility checks inline, verifies
-//! against the dedup ledger (`disbursed:<period>`), and returns a list of
-//! approved `(recipient_did, amount)` pairs within the total budget.
-//! NO PII crosses the WIT boundary.
+//! Scans the PII-free `eligibility` KV map, runs eligibility checks inline,
+//! verifies against the dedup ledger (`disbursed-<period>`), and returns a list
+//! of approved `(recipient_did, amount)` pairs within the total budget.
+//! NO PII crosses the WIT boundary — the map holds only region/income, never
+//! bank account or name.
 
 #[derive(serde::Deserialize)]
 pub struct PrepareBatchReq {
@@ -32,9 +33,9 @@ pub struct ApprovedRecipient {
     pub amount: f64,
 }
 
-/// Minimal recipient profile fields needed for batch eligibility.
+/// Minimal PII-free eligibility record needed for batch eligibility.
 #[derive(serde::Deserialize)]
-struct RecipientProfile {
+struct EligibilityRecord {
     pub recipient_did: String,
     pub region_code: String,
     pub income_bracket: String,
@@ -66,7 +67,7 @@ use crate::host::{
 #[cfg(target_arch = "wasm32")]
 fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> {
     let tid = tenant_context::tenant_did();
-    let recipients_map = crate::map_name(&tid, "recipients");
+    let eligibility_map = crate::map_name(&tid, "eligibility");
     let dedup_map = crate::map_name(&tid, &alloc::format!("disbursed-{}", req.period));
 
     let _ = logging::info(&alloc::format!(
@@ -75,9 +76,9 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
     ));
 
     // Read the recipient index (list of all recipient DIDs)
-    let index_bytes = kv_store::get(&recipients_map, b"_index")
-        .map_err(|e| alloc::format!("kv read recipients index: {e}"))?
-        .ok_or("recipients _index not found — seed recipients via provision.ts")?;
+    let index_bytes = kv_store::get(&eligibility_map, b"_index")
+        .map_err(|e| alloc::format!("kv read eligibility index: {e}"))?
+        .ok_or("eligibility _index not found — seed eligibility via provision.ts")?;
 
     let recipient_dids: alloc::vec::Vec<alloc::string::String> =
         serde_json::from_slice(&index_bytes)
@@ -107,9 +108,9 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
             continue;
         }
 
-        // Read recipient profile
-        let profile_bytes = match kv_store::get(&recipients_map, did.as_bytes())
-            .map_err(|e| alloc::format!("kv read recipient: {e}"))? {
+        // Read recipient's PII-free eligibility record
+        let record_bytes = match kv_store::get(&eligibility_map, did.as_bytes())
+            .map_err(|e| alloc::format!("kv read eligibility: {e}"))? {
             Some(bytes) => bytes,
             None => {
                 let _ = logging::error(&alloc::format!(
@@ -120,11 +121,11 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
             }
         };
 
-        let profile: RecipientProfile = match serde_json::from_slice(&profile_bytes) {
+        let profile: EligibilityRecord = match serde_json::from_slice(&record_bytes) {
             Ok(p) => p,
             Err(e) => {
                 let _ = logging::error(&alloc::format!(
-                    "prepare-batch: bad profile for {}: {e}",
+                    "prepare-batch: bad eligibility record for {}: {e}",
                     did
                 ));
                 continue;

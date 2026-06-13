@@ -1,8 +1,11 @@
 //! check_eligibility: verify a single recipient against policy rules.
 //!
-//! Reads the recipient profile from KV `recipients` and the policy from
-//! KV `policy`. Checks region and income bracket. Returns a boolean
-//! verdict and reason code — NO PII crosses the WIT boundary.
+//! Reads the recipient's eligibility record from KV `eligibility` (PII-FREE:
+//! only recipient_did, region_code, income_bracket) and the policy from KV
+//! `policy`. Checks region and income bracket. Returns a boolean verdict and
+//! reason code. PII (bank account, name, NIK) NEVER enters this contract —
+//! it lives in each recipient's own T3N profile and is only resolved via
+//! `{{profile.*}}` placeholders inside the enclave at disbursement time.
 
 #[derive(serde::Deserialize)]
 pub struct CheckEligibilityReq {
@@ -16,21 +19,14 @@ pub struct CheckEligibilityResp {
     pub recipient_did: String,
 }
 
-/// Recipient profile stored in KV (PII — never returned to agent).
+/// Eligibility record stored in KV `eligibility` — PII-FREE by construction.
+/// Only the attributes needed to evaluate policy. No bank account, name, or NIK.
 #[derive(serde::Deserialize)]
-struct RecipientProfile {
+struct EligibilityRecord {
     #[allow(dead_code)]
     pub recipient_did: String,
-    #[allow(dead_code)]
-    pub legal_name: String,
-    #[allow(dead_code)]
-    pub nik: String,
-    #[allow(dead_code)]
-    pub bank_account: String,
     pub region_code: String,
     pub income_bracket: String,
-    #[allow(dead_code)]
-    pub household_status: String,
 }
 
 /// Policy stored in KV.
@@ -74,7 +70,7 @@ use crate::host::{
 #[cfg(target_arch = "wasm32")]
 fn check_eligibility_wasm(req: CheckEligibilityReq) -> Result<CheckEligibilityResp, String> {
     let tid = tenant_context::tenant_did();
-    let recipients_map = crate::map_name(&tid, "recipients");
+    let eligibility_map = crate::map_name(&tid, "eligibility");
     let policy_map = crate::map_name(&tid, "policy");
 
     let _ = logging::info(&alloc::format!(
@@ -82,16 +78,16 @@ fn check_eligibility_wasm(req: CheckEligibilityReq) -> Result<CheckEligibilityRe
         req.recipient_did
     ));
 
-    // Read recipient profile from KV
-    let profile_bytes = kv_store::get(&recipients_map, req.recipient_did.as_bytes())
-        .map_err(|e| alloc::format!("kv read recipients: {e}"))?
+    // Read recipient's PII-free eligibility record from KV
+    let record_bytes = kv_store::get(&eligibility_map, req.recipient_did.as_bytes())
+        .map_err(|e| alloc::format!("kv read eligibility: {e}"))?
         .ok_or_else(|| alloc::format!(
             "recipient {} not found in {}",
-            req.recipient_did, recipients_map
+            req.recipient_did, eligibility_map
         ))?;
 
-    let profile: RecipientProfile = serde_json::from_slice(&profile_bytes)
-        .map_err(|e| alloc::format!("bad recipient profile: {e}"))?;
+    let profile: EligibilityRecord = serde_json::from_slice(&record_bytes)
+        .map_err(|e| alloc::format!("bad eligibility record: {e}"))?;
 
     // Read policy from KV
     let policy_bytes = kv_store::get(&policy_map, b"current")

@@ -105,15 +105,16 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
         }
 
         // Build the payment request body using placeholders.
-        // The host resolves {{profile.*}} from the calling user's profile
+        // The host resolves {{profile.*}} from the BOUND user's profile
         // inside the enclave — PII never enters WASM memory.
         //
-        // NOTE: For multi-recipient disbursement, the profile placeholders
-        // resolve to the *calling user's* profile (the operator/agent).
-        // In a real system each recipient would have their own T3N profile.
-        // For the hackathon demo we pass bank_account and recipient_name
-        // as contract-known fields (read from KV) but route through
-        // the mock provider. This is a known doc-gap (Track 2 finding).
+        // CONFIRMED (Temuan #2, 2026-06-13): {{profile.*}} resolves ONLY from
+        // the bound user's profile (single subject); the host hard-gates the
+        // `profile` namespace. There is no KV-indexed placeholder. Therefore
+        // execute-disbursement must be invoked PER RECIPIENT, with that
+        // recipient as the bound user context (their own T3N profile + grant),
+        // so {{profile.bank_account}} resolves to the correct recipient.
+        // `approved` should carry exactly one entry per invocation in this model.
         let payment_body = json!({
             "recipient_did": entry.recipient_did,
             "amount": entry.amount,

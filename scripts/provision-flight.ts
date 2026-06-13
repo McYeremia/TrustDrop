@@ -12,8 +12,8 @@
  *   Stage 0  Setup SDK + autentikasi OPERATOR (T3N_API_KEY) → operatorDid
  *   Stage 1  Pastikan artefak WASM ada
  *   Stage 2  Register contract (tail=bansos-contracts) → contractId
- *   Stage 3  Buat KV maps (eligibility/recipients/policy/secrets/audit/dedup)
- *   Stage 4  Seed recipients + policy + secret
+ *   Stage 3  Buat KV maps (eligibility[no-PII]/policy/secrets/audit/dedup)
+ *   Stage 4  Seed eligibility (no PII) + policy + secret
  *   Stage 5  Invoke `check-eligibility`  ← TANPA grant (hanya baca KV).
  *            Berhasil = seluruh sisa Temuan #1 (map-entry-set, canonicalName,
  *            kv-store, eksekusi TEE) terbukti. Ini validasi utama Fase 1.
@@ -45,7 +45,7 @@ import {
 const T3N_API_KEY = process.env.T3N_API_KEY;
 const AGENT_KEY = process.env.AGENT_KEY;
 const CONTRACT_TAIL = "bansos-contracts";
-const CONTRACT_VERSION = "0.1.0"; // bump tiap register ulang di tail sama
+const CONTRACT_VERSION = "0.2.1"; // bump tiap register ulang (0.2.x = Temuan #3: map eligibility tanpa PII; .1 = realign ACL via Stage 3b)
 const PERIOD = "2026-06";
 const WASM_PATH = "contract/target/wasm32-wasip2/release/bansos_contracts.wasm";
 // Penerima yang dijamin eligible (JKT + income low) untuk uji check-eligibility:
@@ -126,9 +126,10 @@ async function main() {
 
   // ── Stage 3: create maps ──
   banner("Stage 3 — Buat KV maps");
-  // eligibility = no-PII (Temuan #3 target). recipients = profil penuh (dipakai
-  // contract saat ini; akan dipecah di Langkah 4). disbursed-<period> = dedup.
-  const maps = ["eligibility", "recipients", "policy", "secrets", "audit", `disbursed-${PERIOD}`];
+  // Temuan #3 (LUNAS): contract HANYA membaca `eligibility` (tanpa PII).
+  // Tidak ada map `recipients` ber-PII — PII tinggal di profil T3N tiap penerima
+  // dan hanya di-resolve via {{profile.*}} saat disbursement. disbursed-<period> = dedup.
+  const maps = ["eligibility", "policy", "secrets", "audit", `disbursed-${PERIOD}`];
   const acl =
     contractId !== undefined
       ? { writers: { only: [contractId] }, readers: { only: [contractId] } }
@@ -140,6 +141,26 @@ async function main() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.log(msg.includes("exist") ? `   ⏭️  map ${tail} sudah ada` : `   ⚠️  map ${tail}: ${msg}`);
+    }
+  }
+
+  // ── Stage 3b: SELARASKAN ACL map ke contractId terkini (Temuan #T2-7) ──
+  // Re-register (bump versi) → contractId BARU. Map privat yang dibuat untuk
+  // contractId lama menolak contract baru (`cannot read map`). `maps.create`
+  // dilewati bila map sudah ada → ACL lama tetap. `maps.update` memperbaiki ACL
+  // TANPA menghapus data. Idempoten: aman dijalankan tiap kali.
+  if (contractId !== undefined) {
+    banner("Stage 3b — Selaraskan ACL map ke contractId terkini");
+    for (const tail of maps) {
+      try {
+        await tenant.maps.update(tail, {
+          readers: { only: [contractId] },
+          writers: { only: [contractId] },
+        });
+        console.log(`   ✅ ACL ${tail} → reader/writer = contract ${contractId}`);
+      } catch (e) {
+        console.log(`   ⚠️  ACL ${tail}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
   }
 
@@ -160,10 +181,10 @@ async function main() {
   }>;
 
   try {
-    // recipients (profil penuh) + index — dipakai check-eligibility saat ini
-    await setEntry("recipients", "_index", recipients.map((r) => r.recipient_did));
-    for (const r of recipients) await setEntry("recipients", r.recipient_did, r);
-    // eligibility (no-PII) — untuk migrasi Temuan #3
+    // eligibility (TANPA PII) — satu-satunya data penerima yang dibaca contract.
+    // Proyeksikan HANYA recipient_did/region_code/income_bracket; field PII
+    // (bank_account/legal_name/nik) sengaja TIDAK pernah masuk map ini.
+    await setEntry("eligibility", "_index", recipients.map((r) => r.recipient_did));
     for (const r of recipients)
       await setEntry("eligibility", r.recipient_did, {
         recipient_did: r.recipient_did,
@@ -181,7 +202,7 @@ async function main() {
     });
     // secret (mock)
     await setEntry("secrets", "provider_api_key", "mock_provider_key_for_hackathon");
-    console.log(`   ✅ seeded ${recipients.length} recipients + eligibility + policy + secret`);
+    console.log(`   ✅ seeded eligibility (${recipients.length}, no PII) + policy + secret`);
   } catch (e) {
     console.log(`   ❌ seed gagal: ${e instanceof Error ? e.message : String(e)}`);
     console.log("   (jika nama fungsi 'map-entry-set' ditolak → catat sebagai Temuan Track 2)");

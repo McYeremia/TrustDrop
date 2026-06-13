@@ -26,8 +26,11 @@ import {
 const T3N_API_KEY = process.env.T3N_API_KEY!;
 const CONTRACT_TAIL = "bansos-contracts";
 const PERIOD = "2026-06";
-const PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? "http://localhost:3000";
-const ALLOWED_HOSTS = ["localhost", "127.0.0.1"]; // hostname MURNI (tanpa port) — host cocokkan per-host
+// Temuan #2: host publik (TEE cloud blokir egress localhost). httpbin /anything/*
+// memantulkan body POST → kita bisa LIHAT apakah {{profile.*}} ter-resolve / mentah / gagal.
+// URL final = `${PROVIDER_URL}/api/mock-provider` (disuffix oleh disburse.rs:129).
+const PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? "https://httpbin.org/anything";
+const ALLOWED_HOSTS = ["httpbin.org"]; // hostname MURNI (tanpa port) — host cocokkan per-host
 
 async function main() {
   if (!T3N_API_KEY) { console.error("❌ T3N_API_KEY kosong"); process.exit(1); }

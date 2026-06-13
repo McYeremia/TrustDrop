@@ -15,16 +15,22 @@
 //! # KV Maps (created by provision.ts before first run)
 //!
 //! - `z:<tid>:secrets`            — mock provider API key
-//! - `z:<tid>:recipients`         — recipient profiles (PII, sealed)
+//! - `z:<tid>:eligibility`        — PII-FREE eligibility records (recipient_did,
+//!                                  region_code, income_bracket) + `_index`.
+//!                                  This is the ONLY recipient data the contract reads.
 //! - `z:<tid>:policy`             — disbursement policy
-//! - `z:<tid>:disbursed:<period>` — deduplication ledger
+//! - `z:<tid>:disbursed-<period>` — deduplication ledger
 //! - `z:<tid>:audit`              — audit entries (no PII)
+//!
+//! PII (bank account, legal name, NIK) is NOT stored in any contract-read map.
+//! It lives in each recipient's own T3N user profile and is resolved only via
+//! `{{profile.*}}` placeholders inside the enclave during `execute-disbursement`.
 #![warn(clippy::style, missing_debug_implementations)]
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
 extern crate alloc;
 
-pub const CONTRACT_VERSION: &str = "0.1.0";
+pub const CONTRACT_VERSION: &str = "0.2.1";
 
 wit_bindgen::generate!({
     world: "tenant-bansos",
@@ -89,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn contract_version_is_v0_1_0() {
-        assert_eq!(CONTRACT_VERSION, "0.1.0");
+    fn contract_version_is_v0_2_1() {
+        assert_eq!(CONTRACT_VERSION, "0.2.1");
     }
 }

@@ -1,2 +1,0 @@
-cargo:rerun-if-changed=build.rs
-cargo:rustc-env=DEBUG_OUTPUT_DIR=C:\06. Hackathon\02. T3AgentDev\trustdrop\contract\target\release\build\wit-bindgen-rust-macro-a523220bea153572\out

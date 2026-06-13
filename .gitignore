@@ -17,6 +17,13 @@
 /.next/
 /out/
 
+# rust / wasm build artifacts (besar — jangan di-push)
+/contract/target/
+target/
+
+# session memory (lokal)
+/.remember/
+
 # production
 /build
 

@@ -1,16 +1,22 @@
 /**
- * In-memory ledger of disbursement requests the mock provider has received.
+ * Ledger of disbursement requests the mock provider has received.
  *
  * This is the heart of the "money shot" proof: the TEE resolves the citizen's
  * PII (full name) inside the enclave and calls this provider with it. We record
  * exactly what arrived here — the resolved PII — and contrast it with what the
  * agent/operator saw back (only a sanitised tx_id + status).
  *
- * Module-level state persists for the lifetime of the server process. For a
- * single-process dev server or a tunnelled (ngrok) live demo this is sufficient.
- * On serverless (Vercel) instances may not share memory across invocations —
- * swap this for Vercel KV / Upstash if cross-instance persistence is needed.
+ * Persistence:
+ *   - On Vercel (serverless) instances don't share memory across invocations, so
+ *     we persist to Upstash Redis when its env vars are present.
+ *   - Locally (no Redis env) we fall back to an in-memory ring, so `npm run dev`
+ *     works with zero setup.
+ *
+ * Env vars (either pair works): the Vercel Upstash integration injects
+ * KV_REST_API_URL / KV_REST_API_TOKEN; a direct Upstash account exposes
+ * UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN.
  */
+import { Redis } from "@upstash/redis";
 
 export interface ReceivedDisbursement {
   /** Server-side receipt timestamp (ISO). */
@@ -29,20 +35,38 @@ export interface ReceivedDisbursement {
   extra: Record<string, unknown>;
 }
 
-// Bounded ring so a long-running demo can't grow without limit.
 const MAX_ENTRIES = 200;
-const ledger: ReceivedDisbursement[] = [];
+const KEY = "trustdrop:disbursements";
 
-export function recordDisbursement(entry: ReceivedDisbursement): void {
-  ledger.unshift(entry);
-  if (ledger.length > MAX_ENTRIES) ledger.length = MAX_ENTRIES;
+const redisUrl = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
+
+// In-memory fallback (local dev / no Redis configured).
+const memory: ReceivedDisbursement[] = [];
+
+export async function recordDisbursement(entry: ReceivedDisbursement): Promise<void> {
+  if (redis) {
+    await redis.lpush(KEY, entry); // client JSON-serialises objects
+    await redis.ltrim(KEY, 0, MAX_ENTRIES - 1);
+    return;
+  }
+  memory.unshift(entry);
+  if (memory.length > MAX_ENTRIES) memory.length = MAX_ENTRIES;
 }
 
 /** Newest-first snapshot of received disbursements. */
-export function listDisbursements(): ReceivedDisbursement[] {
-  return [...ledger];
+export async function listDisbursements(): Promise<ReceivedDisbursement[]> {
+  if (redis) {
+    return (await redis.lrange<ReceivedDisbursement>(KEY, 0, MAX_ENTRIES - 1)) ?? [];
+  }
+  return [...memory];
 }
 
-export function clearDisbursements(): void {
-  ledger.length = 0;
+export async function clearDisbursements(): Promise<void> {
+  if (redis) {
+    await redis.del(KEY);
+    return;
+  }
+  memory.length = 0;
 }

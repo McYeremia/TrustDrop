@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const txId = `TX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-    recordDisbursement({
+    await recordDisbursement({
       received_at: new Date().toISOString(),
       tx_id: txId,
       recipient_did: recipient_did ?? "(missing)",
@@ -70,5 +70,5 @@ export async function POST(request: NextRequest) {
 
 /** Dashboard/audit viewer reads the received-payload ledger from here. */
 export async function GET() {
-  return NextResponse.json({ disbursements: listDisbursements() }, { status: 200 });
+  return NextResponse.json({ disbursements: await listDisbursements() }, { status: 200 });
 }

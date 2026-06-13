@@ -1,2 +1,0 @@
-cargo:rustc-link-lib=static=wit_bindgen_cabi0_49_0
-cargo:rustc-link-search=native=C:\06. Hackathon\02. T3AgentDev\trustdrop\contract\target\wasm32-wasip2\release\build\wit-bindgen-7d7c208ce3e09abb\out

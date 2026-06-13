@@ -1,60 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
+import { recordDisbursement, listDisbursements } from "./store";
 
 /**
- * Mock disbursement provider endpoint.
+ * Mock disbursement provider endpoint (the "bank" / payment rail).
  *
- * This simulates a real payment provider (bank transfer API).
- * In the real flow, the TEE resolves PII (bank_account, recipient_name)
- * via http-with-placeholders BEFORE this endpoint receives the request.
+ * In the real flow the TEE resolves the citizen's PII (full name) via
+ * `http-with-placeholders` BEFORE this endpoint is called. So the body that
+ * arrives HERE contains the resolved PII — proving it left the enclave only
+ * toward the authorised provider, never toward the agent.
  *
- * The "money shot" proof:
- *   - This endpoint receives the resolved PII (bank account, name).
- *   - The AI agent NEVER sees this data — it only sees the sanitised
- *     response (tx_id + status).
+ * The "money shot":
+ *   - POST: this endpoint RECEIVES the resolved PII (recipient_name) and records it.
+ *   - The agent/operator only ever sees the sanitised response (tx_id + status).
+ *   - GET: returns the recorded ledger so the dashboard can SHOW the contrast.
  */
+
+// PII must not be cached by any intermediary; always dynamic.
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const {
+      recipient_did,
+      recipient_name,
+      amount,
+      currency,
+      period,
+      run_id,
+      ...extra
+    } = body ?? {};
 
-    // Log the received data (this proves PII was resolved by TEE)
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("💰 MOCK PROVIDER: Disbursement request received");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("  Recipient DID  :", body.recipient_did);
-    console.log("  Recipient Name :", body.recipient_name || "(placeholder not resolved)");
-    console.log("  Bank Account   :", body.bank_account || "(placeholder not resolved)");
-    console.log("  Amount         :", body.amount, body.currency || "IDR");
-    console.log("  Period         :", body.period);
-    console.log("  Run ID         :", body.run_id);
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-    // Generate a mock transaction ID
     const txId = `TX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-    // Simulate processing delay (50-200ms)
-    await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
+    recordDisbursement({
+      received_at: new Date().toISOString(),
+      tx_id: txId,
+      recipient_did: recipient_did ?? "(missing)",
+      // If the placeholder was NOT resolved, the literal "{{profile...}}" arrives —
+      // surfacing that here makes a failed resolution obvious in the UI.
+      recipient_name: recipient_name ?? "(name placeholder not resolved)",
+      amount: Number(amount) || 0,
+      currency: currency ?? "IDR",
+      period: period ?? "",
+      run_id: run_id ?? "",
+      extra,
+    });
 
-    // Return sanitised response (no PII in response)
+    // Sanitised response — NO PII echoed back to the caller (the agent).
     return NextResponse.json(
       {
         status: "success",
         tx_id: txId,
-        recipient_did: body.recipient_did,
-        amount: body.amount,
-        currency: body.currency || "IDR",
+        recipient_did: recipient_did ?? null,
+        amount: Number(amount) || 0,
+        currency: currency ?? "IDR",
         timestamp: new Date().toISOString(),
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("MOCK PROVIDER ERROR:", error);
     return NextResponse.json(
-      {
-        status: "error",
-        message: "Mock provider internal error",
-        tx_id: "",
-      },
-      { status: 500 }
+      { status: "error", message: "Mock provider internal error", tx_id: "" },
+      { status: 500 },
     );
   }
+}
+
+/** Dashboard/audit viewer reads the received-payload ledger from here. */
+export async function GET() {
+  return NextResponse.json({ disbursements: listDisbursements() }, { status: 200 });
 }

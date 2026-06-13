@@ -1,26 +1,125 @@
 @import "tailwindcss";
 
+/*
+  TrustDrop — "institutional cryptographic ledger" aesthetic.
+  Deep slate vault + emerald (verified/sealed) + amber (PII exposed).
+  Precision over decoration: this is a trust instrument, not a toy.
+*/
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --vault-950: #060a0c;
+  --vault-900: #0a1114;
+  --vault-850: #0e1519;
+  --vault-800: #121d22;
+  --vault-700: #1b2a30;
+  --line: #1f3138;
+  --line-soft: #16242a;
+
+  --ink: #e8f0ef;
+  --ink-dim: #8ba3a4;
+  --ink-faint: #54696b;
+
+  --seal: #2fd3a5;        /* emerald — verified / sealed / no-PII */
+  --seal-deep: #0f5f4c;
+  --pii: #f0a93b;         /* amber — PII present (inside enclave only) */
+  --pii-deep: #6b4410;
+  --alert: #e8654f;       /* coral — denied / failure */
+
+  --background: var(--vault-950);
+  --foreground: var(--ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-vault-950: var(--vault-950);
+  --color-vault-900: var(--vault-900);
+  --color-vault-850: var(--vault-850);
+  --color-vault-800: var(--vault-800);
+  --color-vault-700: var(--vault-700);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-faint: var(--ink-faint);
+  --color-seal: var(--seal);
+  --color-seal-deep: var(--seal-deep);
+  --color-pii: var(--pii);
+  --color-pii-deep: var(--pii-deep);
+  --color-alert: var(--alert);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--vault-950);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(47, 211, 165, 0.06), transparent 60%),
+    radial-gradient(900px 500px at -5% 110%, rgba(240, 169, 59, 0.045), transparent 55%),
+    var(--vault-950);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv01";
 }
+
+/* Fine engraved grid — like security paper. */
+.vault-grid {
+  background-image:
+    linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(circle at 50% 0%, black, transparent 75%);
+  mask-image: radial-gradient(circle at 50% 0%, black, transparent 75%);
+}
+
+/* Grain overlay for tactile, printed feel. */
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.font-display { font-family: var(--font-display), Georgia, serif; }
+.font-mono { font-family: var(--font-mono), ui-monospace, monospace; }
+
+.tracking-engrave { letter-spacing: 0.32em; }
+
+/* Animated dashed flow line between pipeline nodes. */
+@keyframes flow {
+  to { background-position: -16px 0; }
+}
+.flow-line {
+  background-image: linear-gradient(90deg, var(--seal) 0 8px, transparent 8px 16px);
+  background-size: 16px 2px;
+  background-repeat: repeat-x;
+  animation: flow 0.8s linear infinite;
+}
+
+@keyframes seal-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 211, 165, 0.35); }
+  50% { box-shadow: 0 0 0 8px rgba(47, 211, 165, 0); }
+}
+.seal-pulse { animation: seal-pulse 2.4s ease-in-out infinite; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes ledger-in {
+  from { opacity: 0; transform: translateX(-8px); background-color: rgba(47,211,165,0.10); }
+  to { opacity: 1; transform: translateX(0); background-color: transparent; }
+}
+.ledger-in { animation: ledger-in 0.7s ease-out both; }
+
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }

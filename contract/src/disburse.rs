@@ -108,19 +108,20 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
         // The host resolves {{profile.*}} from the BOUND user's profile
         // inside the enclave — PII never enters WASM memory.
         //
-        // CONFIRMED (Temuan #2, 2026-06-13): {{profile.*}} resolves ONLY from
-        // the bound user's profile (single subject); the host hard-gates the
-        // `profile` namespace. There is no KV-indexed placeholder. Therefore
-        // execute-disbursement must be invoked PER RECIPIENT, with that
-        // recipient as the bound user context (their own T3N profile + grant),
-        // so {{profile.bank_account}} resolves to the correct recipient.
-        // `approved` should carry exactly one entry per invocation in this model.
+        // CONFIRMED (Temuan #2/#T2-9, 2026-06-13): {{profile.*}} resolves ONLY
+        // from the bound user's profile (single subject); the host hard-gates
+        // the `profile` namespace AND only canonical KYC fields exist. Notably
+        // `bank_account` is rejected (payment methods use `profile-ref`), and
+        // `ssn` is validated as a 9-digit US SSN (no Indonesian-NIK field). So
+        // the resolved PII here is the citizen's full NAME — sensitive identity
+        // the disbursement provider needs and the agent must never see.
+        // execute-disbursement is invoked PER RECIPIENT with that recipient
+        // bound as the user context (their own profile + grant).
         let payment_body = json!({
             "recipient_did": entry.recipient_did,
             "amount": entry.amount,
             "currency": "IDR",
-            "bank_account": "{{profile.bank_account}}",
-            "recipient_name": "{{profile.first_name}}",
+            "recipient_name": "{{profile.first_name}} {{profile.last_name}}",
             "period": req.period,
             "run_id": run_id,
         });

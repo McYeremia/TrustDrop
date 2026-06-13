@@ -45,7 +45,7 @@ import {
 const T3N_API_KEY = process.env.T3N_API_KEY;
 const AGENT_KEY = process.env.AGENT_KEY;
 const CONTRACT_TAIL = "bansos-contracts";
-const CONTRACT_VERSION = "0.2.1"; // bump tiap register ulang (0.2.x = Temuan #3: map eligibility tanpa PII; .1 = realign ACL via Stage 3b)
+const CONTRACT_VERSION = "0.2.3"; // 0.2.x=Temuan#3; .1=Stage3b ACL; .2/.3=Temuan#T2-9 (placeholder pakai field profil baku: nama lengkap, bukan bank_account/ssn)
 const PERIOD = "2026-06";
 const WASM_PATH = "contract/target/wasm32-wasip2/release/bansos_contracts.wasm";
 // Penerima yang dijamin eligible (JKT + income low) untuk uji check-eligibility:

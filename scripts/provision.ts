@@ -38,7 +38,7 @@ if (!T3N_API_KEY || T3N_API_KEY === "isi_dengan_developer_key_dari_claim_page") 
 }
 
 const CONTRACT_TAIL = "bansos-contracts";
-const CONTRACT_VERSION = "0.2.1"; // bump on each re-register (0.2.x = Temuan #3: eligibility map no PII)
+const CONTRACT_VERSION = "0.2.3"; // bump on each re-register (0.2.x = Temuan #3; .2/.3 = Temuan #T2-9 placeholder fields: full name)
 const DISBURSEMENT_PERIOD = "2026-06";
 
 async function main() {
@@ -49,7 +49,7 @@ async function main() {
   console.log("1️⃣  Setting up T3N SDK...");
   setEnvironment("testnet");
   const wasmComponent = await loadWasmComponent();
-  const address = eth_get_address(T3N_API_KEY);
+  const address = eth_get_address(T3N_API_KEY!); // dijamin ada oleh guard di atas
   console.log("   Address:", address);
 
   const t3n = new T3nClient({

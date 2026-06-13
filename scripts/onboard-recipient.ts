@@ -34,9 +34,19 @@ const T3N_API_KEY = process.env.T3N_API_KEY;
 const RECIPIENT_KEY = process.env.RECIPIENT_KEY;
 const CONTRACT_TAIL = "bansos-contracts";
 const PERIOD = "2026-06";
+// Arahkan ke provider publik via MOCK_PROVIDER_URL (mis. URL Cloud Run).
+// Contract menambah `/api/mock-provider`, jadi beri base URL tanpa path itu.
 const PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? "https://httpbin.org/anything";
-const ALLOWED_HOSTS = ["httpbin.org"];
-const RECIPIENT_PROFILE = { first_name: "Budi", bank_account: "1234567890" };
+// allowedHosts grant = hostname MURNI provider (Temuan #T2-6), diturunkan otomatis.
+const ALLOWED_HOSTS = [new URL(PROVIDER_URL).hostname];
+// Field PII baku yg DITERIMA profil T3N (Temuan #T2-9): bank_account ditolak,
+// ssn divalidasi 9-digit US SSN (bukan NIK). Pakai hanya field yg pasti valid:
+// first_name (diterima) + last_name (wajib). Yg di-resolve placeholder di enclave
+// = nama lengkap warga (PII; agen tak pernah melihatnya).
+const RECIPIENT_PROFILE = {
+  first_name: "Budi",
+  last_name: "Santoso",
+};
 
 function banner(s: string) { console.log(`\n${"─".repeat(60)}\n${s}\n${"─".repeat(60)}`); }
 
@@ -70,35 +80,55 @@ async function main() {
   setEnvironment("testnet");
   const nodeUrl = getNodeUrl();
 
-  // ── 1. Auth penerima + kirim OTP (SESI yg sama dipakai sampai verify) ──
-  banner("1 — Auth penerima + kirim OTP");
+  // ── 1. Auth penerima ──
+  banner("1 — Auth penerima");
   const rcpt = await authClient("recipient", RECIPIENT_KEY);
-  const reqRes = await rcpt.client.otpRequest({ emailChannel: { emailAddress: email } });
-  console.log("   ✅ OTP dikirim:", JSON.stringify(reqRes));
 
-  // ── 2. Tunggu kode dari stdin → verify (sesi penerima TETAP hidup) ──
-  banner("2 — Masukkan kode OTP dari email");
-  const rl = createInterface({ input, output });
-  const code = (await rl.question(`   Kode OTP utk ${email}: `)).trim();
-  rl.close();
+  // ── 2-3. Commit profil. Coba LANGSUNG dulu (email mungkin sudah terverifikasi
+  // dari sesi sebelumnya). Hanya jalankan OTP bila ditolak EmailNotVerified. ──
+  const submitProfile = () =>
+    rcpt.client.submitUserInput({ profile: RECIPIENT_PROFILE, becomeDevTenant: true });
+
+  banner("2 — submitUserInput (coba langsung; OTP hanya jika perlu)");
+  let committed = false;
   try {
-    const v = await rcpt.client.otpVerify({ otpCode: code, request: { emailChannel: { emailAddress: email } } });
-    console.log("   ✅ otpVerify:", JSON.stringify(v));
-    if (v.status) { console.log("   ❌ status:", v.status, "→ kode salah/kedaluwarsa. Ulangi skrip."); return; }
+    const r = await submitProfile();
+    console.log("   ✅ submitUserInput (email sudah terverifikasi):", JSON.stringify(r));
+    if (r.tenantAdmit) console.log("   tenantAdmit:", JSON.stringify(r.tenantAdmit));
+    committed = true;
   } catch (e) {
-    console.log(`   ❌ otpVerify: ${e instanceof Error ? e.message : String(e)}`);
-    return;
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/email.?not.?verified|EmailNotVerified|verified email/i.test(msg)) {
+      console.log(`   ❌ submitUserInput: ${msg}`);
+      return;
+    }
+    console.log("   ℹ️ email belum terverifikasi → jalankan OTP sekali.");
   }
 
-  // ── 3. Profil PII + becomeDevTenant ──
-  banner("3 — submitUserInput (profil PII + becomeDevTenant)");
-  try {
-    const r = await rcpt.client.submitUserInput({ profile: RECIPIENT_PROFILE, becomeDevTenant: true });
-    console.log("   ✅ submitUserInput:", JSON.stringify(r));
-    if (r.tenantAdmit) console.log("   tenantAdmit:", JSON.stringify(r.tenantAdmit));
-  } catch (e) {
-    console.log(`   ❌ submitUserInput: ${e instanceof Error ? e.message : String(e)}`);
-    return;
+  if (!committed) {
+    banner("2b — OTP (email belum terverifikasi)");
+    const reqRes = await rcpt.client.otpRequest({ emailChannel: { emailAddress: email } });
+    console.log("   ✅ OTP dikirim:", JSON.stringify(reqRes));
+    const rl = createInterface({ input, output });
+    const code = (await rl.question(`   Kode OTP utk ${email}: `)).trim();
+    rl.close();
+    try {
+      const v = await rcpt.client.otpVerify({ otpCode: code, request: { emailChannel: { emailAddress: email } } });
+      console.log("   ✅ otpVerify:", JSON.stringify(v));
+      if (v.status) { console.log("   ❌ status:", v.status, "→ kode salah/kedaluwarsa."); return; }
+    } catch (e) {
+      console.log(`   ❌ otpVerify: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    banner("3 — submitUserInput (setelah verify)");
+    try {
+      const r = await submitProfile();
+      console.log("   ✅ submitUserInput:", JSON.stringify(r));
+      if (r.tenantAdmit) console.log("   tenantAdmit:", JSON.stringify(r.tenantAdmit));
+    } catch (e) {
+      console.log(`   ❌ submitUserInput: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
   }
   await balanceOf(rcpt.client, "penerima");
 

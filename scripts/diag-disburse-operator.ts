@@ -30,7 +30,7 @@ const PERIOD = "2026-06";
 // memantulkan body POST → kita bisa LIHAT apakah {{profile.*}} ter-resolve / mentah / gagal.
 // URL final = `${PROVIDER_URL}/api/mock-provider` (disuffix oleh disburse.rs:129).
 const PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? "https://httpbin.org/anything";
-const ALLOWED_HOSTS = ["httpbin.org"]; // hostname MURNI (tanpa port) — host cocokkan per-host
+const ALLOWED_HOSTS = [new URL(PROVIDER_URL).hostname]; // hostname MURNI diturunkan dari URL (Temuan #T2-6)
 
 async function main() {
   if (!T3N_API_KEY) { console.error("❌ T3N_API_KEY kosong"); process.exit(1); }

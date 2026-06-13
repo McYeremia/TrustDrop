@@ -1,65 +1,413 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+interface Disbursement {
+  received_at: string;
+  tx_id: string;
+  recipient_did: string;
+  recipient_name: string;
+  amount: number;
+  currency: string;
+  period: string;
+  run_id: string;
+  extra: Record<string, unknown>;
+}
+
+const CONTRACT = "z:cdbdf0…0100a:bansos-contracts";
+const VERSION = "v0.2.3";
+
+function shortDid(did: string) {
+  if (!did?.startsWith("did:t3n:")) return did;
+  const tail = did.slice("did:t3n:".length);
+  return `did:t3n:${tail.slice(0, 6)}…${tail.slice(-4)}`;
+}
+
+function rupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
 export default function Home() {
+  const [rows, setRows] = useState<Disbursement[]>([]);
+  const [live, setLive] = useState(false);
+  const seen = useRef<Set<string>>(new Set());
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let active = true;
+    async function poll() {
+      try {
+        const res = await fetch("/api/mock-provider", { cache: "no-store" });
+        const data = (await res.json()) as { disbursements: Disbursement[] };
+        if (!active) return;
+        setLive(true);
+        const incoming = data.disbursements ?? [];
+        const newIds = incoming.map((d) => d.tx_id).filter((id) => !seen.current.has(id));
+        if (newIds.length) {
+          newIds.forEach((id) => seen.current.add(id));
+          setFresh(new Set(newIds));
+          setTimeout(() => active && setFresh(new Set()), 1500);
+        }
+        setRows(incoming);
+      } catch {
+        if (active) setLive(false);
+      }
+    }
+    poll();
+    const t = setInterval(poll, 2500);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  const latest = rows[0];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="grain relative min-h-full overflow-x-hidden">
+      <div className="vault-grid pointer-events-none absolute inset-0 h-[520px]" />
+
+      {/* ── Top bar ── */}
+      <header className="relative z-10 flex items-center justify-between border-b border-line/70 px-6 py-4 sm:px-10">
+        <div className="flex items-center gap-3">
+          <SealMark />
+          <div className="leading-tight">
+            <div className="font-display text-lg font-semibold tracking-tight text-ink">
+              TrustDrop
+            </div>
+            <div className="text-[10px] uppercase tracking-engrave text-ink-faint">
+              Penyaluran Bansos Terverifikasi
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        <div className="flex items-center gap-4 text-[11px] text-ink-dim">
+          <span className="hidden font-mono sm:inline">{CONTRACT}</span>
+          <span className="rounded-full border border-line bg-vault-850 px-2 py-1 font-mono text-ink-dim">
+            {VERSION}
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-line bg-vault-850 px-2.5 py-1 font-mono uppercase tracking-wider">
+            <span
+              className={`size-1.5 rounded-full ${live ? "bg-seal seal-pulse" : "bg-ink-faint"}`}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {live ? "testnet · live" : "menghubungkan"}
+          </span>
         </div>
-      </main>
+      </header>
+
+      {/* ── Hero ── */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-16 pb-10 sm:px-10">
+        <p className="rise mb-5 inline-flex items-center gap-2 rounded-full border border-seal/30 bg-seal/5 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-seal">
+          <span className="size-1.5 rounded-full bg-seal" />
+          Terminal 3 · Agent Auth SDK
+        </p>
+        <h1
+          className="rise font-display text-5xl leading-[0.98] tracking-tight text-ink sm:text-7xl"
+          style={{ animationDelay: "60ms" }}
+        >
+          Data pribadi warga
+          <br />
+          <span className="text-ink-dim">tak pernah keluar dari</span>{" "}
+          <span className="relative whitespace-nowrap text-seal">
+            enclave
+            <svg
+              className="absolute -bottom-2 left-0 w-full"
+              height="10"
+              viewBox="0 0 300 10"
+              fill="none"
+              preserveAspectRatio="none"
+            >
+              <path d="M2 7C60 3 240 3 298 7" stroke="var(--seal)" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+            </svg>
+          </span>
+          .
+        </h1>
+        <p
+          className="rise mt-7 max-w-2xl text-lg leading-relaxed text-ink-dim"
+          style={{ animationDelay: "140ms" }}
+        >
+          Agen AI memverifikasi kelayakan dan mencairkan bantuan sosial{" "}
+          <span className="text-ink">atas nama lembaga</span> — tanpa pernah
+          melihat NIK, nama, atau rekening warga. PII di-resolve di dalam{" "}
+          <span className="text-ink">Trusted Execution Environment</span>,
+          dengan jejak audit yang tak bisa diubah.
+        </p>
+      </section>
+
+      {/* ── Pipeline ── */}
+      <Pipeline />
+
+      {/* ── Money shot ── */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 sm:px-10">
+        <SectionLabel n="01" title="The money shot" sub="Satu transaksi, dua tingkat keterlihatan" />
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr]">
+          <ProviderView d={latest} />
+          <Divider />
+          <AgentView d={latest} />
+        </div>
+      </section>
+
+      {/* ── Live ledger ── */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24 sm:px-10">
+        <SectionLabel
+          n="02"
+          title="Ledger pencairan diterima provider"
+          sub={`${rows.length} transaksi · diperbarui tiap 2.5 dtk`}
+        />
+        <Ledger rows={rows} fresh={fresh} />
+        <p className="mt-5 font-mono text-xs leading-relaxed text-ink-faint">
+          &gt; jalankan{" "}
+          <span className="text-ink-dim">
+            npx tsx --env-file=.env.local scripts/onboard-recipient.ts &lt;email&gt;
+          </span>{" "}
+          → baris baru muncul live di atas saat enclave memanggil provider.
+        </p>
+      </section>
+
+      <footer className="relative z-10 border-t border-line/60 px-6 py-6 text-center font-mono text-[11px] text-ink-faint sm:px-10">
+        TrustDrop · demo testnet T3N · data sintetis · bukan sistem produksi pemerintah
+      </footer>
+    </div>
+  );
+}
+
+/* ───────────────────────── Components ───────────────────────── */
+
+function SealMark() {
+  return (
+    <div className="relative grid size-9 place-items-center rounded-md border border-seal/40 bg-seal/10">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="var(--seal)" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M8.5 12l2.5 2.5 4.5-5" stroke="var(--seal)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+function SectionLabel({ n, title, sub }: { n: string; title: string; sub: string }) {
+  return (
+    <div className="mb-6 flex items-end justify-between gap-4 border-b border-line/60 pb-3">
+      <div className="flex items-baseline gap-3">
+        <span className="font-mono text-xs text-seal">{n}</span>
+        <h2 className="font-display text-2xl tracking-tight text-ink">{title}</h2>
+      </div>
+      <span className="hidden text-right font-mono text-[11px] uppercase tracking-wider text-ink-faint sm:block">
+        {sub}
+      </span>
+    </div>
+  );
+}
+
+function Pipeline() {
+  const nodes = [
+    { k: "Operator", d: "Lembaga atur policy & setujui run", pii: false },
+    { k: "Agen AI", d: "Orkestrasi · kirim instruksi", pii: false },
+    { k: "TEE Enclave", d: "Resolve PII · panggil provider", pii: true, seal: true },
+    { k: "Provider", d: "Terima PII ter-resolve", pii: true },
+  ];
+  return (
+    <section className="relative z-10 mx-auto max-w-6xl px-6 pb-14 sm:px-10">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {nodes.map((n, i) => (
+          <div key={n.k} className="relative">
+            {i > 0 && <div className="flow-line absolute -left-3 top-9 hidden h-0.5 w-3 sm:block" />}
+            <div
+              className={`rise h-full rounded-lg border bg-vault-900/70 p-4 backdrop-blur ${
+                n.seal ? "border-seal/40 seal-pulse" : "border-line"
+              }`}
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+                  0{i + 1}
+                </span>
+                {n.pii ? (
+                  <span className="rounded border border-pii/40 bg-pii/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-pii">
+                    PII
+                  </span>
+                ) : (
+                  <span className="rounded border border-seal/30 bg-seal/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-seal">
+                    0 PII
+                  </span>
+                )}
+              </div>
+              <div className="font-display text-base text-ink">{n.k}</div>
+              <div className="mt-1 text-xs leading-snug text-ink-dim">{n.d}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+        <span className="h-px flex-1 bg-line" />
+        garis batas PII — kiri: tak pernah melihat data · kanan: hanya di dalam enclave
+        <span className="h-px flex-1 bg-line" />
+      </div>
+    </section>
+  );
+}
+
+function ProviderView({ d }: { d?: Disbursement }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-pii/40 bg-gradient-to-b from-pii/[0.07] to-transparent p-6">
+      <Corner color="var(--pii)" />
+      <div className="mb-1 flex items-center gap-2">
+        <span className="rounded border border-pii/40 bg-pii/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-pii">
+          Di dalam enclave → provider
+        </span>
+      </div>
+      <h3 className="font-display text-xl text-ink">Yang diterima provider</h3>
+      <p className="mb-5 text-sm text-ink-dim">PII warga, di-resolve host di dalam TEE.</p>
+
+      {d ? (
+        <dl className="space-y-3 font-mono text-sm">
+          <Field label="recipient_name" value={d.recipient_name} pii />
+          <Field label="amount" value={rupiah(d.amount)} />
+          <Field label="recipient_did" value={shortDid(d.recipient_did)} dim />
+          <Field label="period" value={d.period} dim />
+        </dl>
+      ) : (
+        <Empty tone="pii" />
+      )}
+    </div>
+  );
+}
+
+function AgentView({ d }: { d?: Disbursement }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-seal/40 bg-gradient-to-b from-seal/[0.06] to-transparent p-6">
+      <Corner color="var(--seal)" />
+      <div className="mb-1 flex items-center gap-2">
+        <span className="rounded border border-seal/40 bg-seal/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-seal">
+          Respons ke agen · tersanitasi
+        </span>
+      </div>
+      <h3 className="font-display text-xl text-ink">Yang dilihat agen</h3>
+      <p className="mb-5 text-sm text-ink-dim">Hanya status & tx_id. Nol PII.</p>
+
+      {d ? (
+        <dl className="space-y-3 font-mono text-sm">
+          <Field label="status" value="SUCCESS" seal />
+          <Field label="tx_id" value={d.tx_id} />
+          <Field label="recipient_did" value={shortDid(d.recipient_did)} dim />
+          <div className="flex items-center justify-between border-t border-line/60 pt-3">
+            <span className="text-ink-faint">recipient_name</span>
+            <span className="rounded bg-vault-800 px-2 py-0.5 text-ink-faint line-through decoration-alert/70">
+              tidak pernah terlihat
+            </span>
+          </div>
+        </dl>
+      ) : (
+        <Empty tone="seal" />
+      )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  pii,
+  seal,
+  dim,
+}: {
+  label: string;
+  value: string;
+  pii?: boolean;
+  seal?: boolean;
+  dim?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-ink-faint">{label}</span>
+      <span
+        className={`truncate text-right ${
+          pii
+            ? "rounded bg-pii/15 px-2 py-0.5 font-semibold text-pii"
+            : seal
+              ? "font-semibold text-seal"
+              : dim
+                ? "text-ink-dim"
+                : "text-ink"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="relative flex items-center justify-center lg:flex-col">
+      <div className="hidden h-full w-px bg-gradient-to-b from-transparent via-line to-transparent lg:block" />
+      <div className="grid size-10 place-items-center rounded-full border border-line bg-vault-850 lg:absolute">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <rect x="5" y="11" width="14" height="9" rx="1.5" stroke="var(--ink-dim)" strokeWidth="1.5" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="var(--ink-dim)" strokeWidth="1.5" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function Corner({ color }: { color: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute -right-px -top-px size-16"
+      style={{ background: `linear-gradient(225deg, ${color}22, transparent 60%)` }}
+    />
+  );
+}
+
+function Empty({ tone }: { tone: "pii" | "seal" }) {
+  return (
+    <div
+      className={`rounded-lg border border-dashed py-10 text-center font-mono text-xs ${
+        tone === "pii" ? "border-pii/25 text-pii/60" : "border-seal/25 text-seal/60"
+      }`}
+    >
+      menunggu pencairan pertama…
+    </div>
+  );
+}
+
+function Ledger({ rows, fresh }: { rows: Disbursement[]; fresh: Set<string> }) {
+  if (!rows.length) {
+    return (
+      <div className="rounded-xl border border-dashed border-line py-16 text-center">
+        <p className="font-mono text-sm text-ink-faint">Belum ada pencairan tercatat.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-vault-900/50">
+      <div className="grid grid-cols-[1.4fr_1fr_0.8fr_1.2fr] gap-4 border-b border-line/70 bg-vault-850 px-5 py-3 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+        <span>recipient_name (PII)</span>
+        <span>tx_id</span>
+        <span>amount</span>
+        <span className="text-right">received_at</span>
+      </div>
+      {rows.map((r) => (
+        <div
+          key={r.tx_id}
+          className={`grid grid-cols-[1.4fr_1fr_0.8fr_1.2fr] items-center gap-4 border-b border-line-soft px-5 py-3.5 font-mono text-sm last:border-0 ${
+            fresh.has(r.tx_id) ? "ledger-in" : ""
+          }`}
+        >
+          <span className="flex items-center gap-2 truncate">
+            <span className="size-1.5 shrink-0 rounded-full bg-pii" />
+            <span className="truncate text-pii">{r.recipient_name}</span>
+          </span>
+          <span className="truncate text-ink-dim">{r.tx_id}</span>
+          <span className="text-ink">{rupiah(r.amount)}</span>
+          <span className="truncate text-right text-ink-faint">
+            {new Date(r.received_at).toLocaleTimeString("id-ID")}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

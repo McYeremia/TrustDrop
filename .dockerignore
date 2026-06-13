@@ -1,0 +1,19 @@
+# Never bake into the image:
+.env.local
+.env*.local
+.git
+.gitignore
+
+# Large / irrelevant to the web app:
+contract/target
+node_modules
+.next
+npm-debug.log*
+
+# SDK / provisioning scripts run locally, not in the container:
+scripts
+
+# Docs & memory:
+*.md
+.remember
+.claude

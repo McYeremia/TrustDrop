@@ -33,7 +33,7 @@ import {
 const T3N_API_KEY = process.env.T3N_API_KEY;
 const RECIPIENT_KEY = process.env.RECIPIENT_KEY;
 const CONTRACT_TAIL = "bansos-contracts";
-const PERIOD = "2026-06";
+const PERIOD = process.env.DISBURSE_PERIOD ?? "2026-07";
 // Arahkan ke provider publik via MOCK_PROVIDER_URL (mis. URL Cloud Run).
 // Contract menambah `/api/mock-provider`, jadi beri base URL tanpa path itu.
 const PROVIDER_URL = process.env.MOCK_PROVIDER_URL ?? "https://httpbin.org/anything";

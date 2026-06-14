@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
  try {
-  const { recipient_did, decision } = await req.json();
-  const app = await getApplication(recipient_did);
+  const { recipient_did, program_id, decision } = await req.json();
+  const app = await getApplication(recipient_did, program_id);
   if (!app) return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
 
   if (decision === "reject") {

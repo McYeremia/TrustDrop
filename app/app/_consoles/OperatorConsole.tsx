@@ -2,22 +2,29 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { rupiah, shortDid, SectionLabel } from "@/app/_ui/primitives";
+import AgentPanel from "./AgentPanel";
+import AgentAuthPanel from "./AgentAuthPanel";
 
 interface Application {
   recipient_did: string;
+  program_id: string;
+  program_name: string;
   region_code: string;
   income_bracket: string;
   household_status: string;
   tier: string;
   amount: number;
+  eligible: boolean;
+  reason?: string;
   issuers: string[];
   status: "pending" | "approved" | "rejected";
 }
 
-export default function OperatorConsole() {
+export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRecipient?: () => void }) {
   const [apps, setApps] = useState<Application[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<{ did: string; text: string; ok: boolean }[]>([]);
+  const [authorized, setAuthorized] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/operator/applications", { cache: "no-store" });
@@ -35,13 +42,13 @@ export default function OperatorConsole() {
     setLog((l) => [{ did, text, ok }, ...l].slice(0, 8));
   }
 
-  async function decide(did: string, decision: "approve" | "reject") {
-    setBusy(did + decision);
+  async function decide(did: string, program_id: string, decision: "approve" | "reject") {
+    setBusy(did + program_id + decision);
     try {
       const res = await fetch("/api/operator/decision", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ recipient_did: did, decision }),
+        body: JSON.stringify({ recipient_did: did, program_id, decision }),
       });
       const data = await res.json();
       pushLog(did, data.ok ? `decision: ${data.status}` : `decision failed: ${data.reason ?? "error"}`, !!data.ok);
@@ -53,8 +60,8 @@ export default function OperatorConsole() {
     }
   }
 
-  async function callContract(did: string, path: string, body: object, label: string) {
-    setBusy(did + label);
+  async function callContract(busyKey: string, did: string, path: string, body: object, label: string) {
+    setBusy(busyKey);
     try {
       const res = await fetch(path, {
         method: "POST",
@@ -77,29 +84,52 @@ export default function OperatorConsole() {
     <div>
       <SectionLabel n="O" title="Eligibility approvals" sub="Attested attributes only — no PII" />
 
+      {/* Agent Auth delegation + AI agent */}
+      <AgentAuthPanel onChange={setAuthorized} />
+      <AgentPanel onDisbursed={load} authorized={authorized} />
+
       {/* Pending queue */}
       <div className="rounded-xl border border-line bg-vault-900/60 p-5">
         <div className="mb-3 font-mono text-[11px] uppercase tracking-wider text-ink-faint">
           pending applications · {pending.length}
         </div>
         {pending.length === 0 ? (
-          <p className="py-6 text-center font-mono text-sm text-ink-faint">No pending applications.</p>
+          <div className="py-8 text-center">
+            <p className="font-mono text-sm text-ink-faint">No pending applications yet.</p>
+            <p className="mt-1 text-xs" style={{ color: "#555" }}>
+              Someone needs to apply first —{" "}
+              {onSwitchToRecipient ? (
+                <button
+                  onClick={onSwitchToRecipient}
+                  className="font-mono text-seal underline-offset-2 hover:underline"
+                >
+                  switch to Recipient console
+                </button>
+              ) : (
+                <span style={{ color: "#666" }}>go to the Recipient console</span>
+              )}{" "}
+              to submit an application.
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {pending.map((a) => (
-              <div key={a.recipient_did} className="rounded-lg border border-line-soft bg-vault-950/50 p-4">
+              <div key={a.recipient_did + a.program_id} className="rounded-lg border border-line-soft bg-vault-950/50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="font-mono text-sm text-ink-dim">{shortDid(a.recipient_did)}</div>
+                  <div>
+                    <div className="text-sm font-bold text-ink">{a.program_name}</div>
+                    <div className="font-mono text-[11px] text-ink-faint">{shortDid(a.recipient_did)}</div>
+                  </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => decide(a.recipient_did, "approve")}
+                      onClick={() => decide(a.recipient_did, a.program_id, "approve")}
                       disabled={busy !== null}
                       className="rounded-lg border border-seal/40 bg-seal/15 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-seal transition hover:bg-seal/25 disabled:opacity-40"
                     >
                       Approve
                     </button>
                     <button
-                      onClick={() => decide(a.recipient_did, "reject")}
+                      onClick={() => decide(a.recipient_did, a.program_id, "reject")}
                       disabled={busy !== null}
                       className="rounded-lg border border-alert/40 bg-alert/10 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-alert transition hover:bg-alert/20 disabled:opacity-40"
                     >
@@ -111,9 +141,15 @@ export default function OperatorConsole() {
                   <Badge text={`income=${a.income_bracket}`} issuer="Tax Office" />
                   <Badge text={`region=${a.region_code}`} issuer="Civil Registry" />
                   <Badge text={`household=${a.household_status}`} issuer="Civil Registry" />
-                  <span className="rounded border border-seal/30 bg-seal/5 px-2 py-0.5 font-mono text-[11px] text-seal">
-                    {a.tier} · {rupiah(a.amount)}
-                  </span>
+                  {a.eligible === false ? (
+                    <span className="rounded border border-alert/40 bg-alert/10 px-2 py-0.5 font-mono text-[11px] text-alert">
+                      policy: ineligible · {a.reason}
+                    </span>
+                  ) : (
+                    <span className="rounded border border-seal/30 bg-seal/5 px-2 py-0.5 font-mono text-[11px] text-seal">
+                      policy: {a.tier} · {rupiah(a.amount)}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -133,21 +169,27 @@ export default function OperatorConsole() {
           <p className="py-6 text-center font-mono text-sm text-ink-faint">Nothing approved yet.</p>
         ) : (
           <div className="space-y-3">
-            {approved.map((a) => (
-              <div key={a.recipient_did} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-soft bg-vault-950/50 p-4">
-                <div className="font-mono text-sm text-ink-dim">
-                  {shortDid(a.recipient_did)} · <span className="text-seal">{a.tier}</span>
+            {approved.map((a) => {
+              const k = a.recipient_did + a.program_id;
+              return (
+              <div key={k} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-soft bg-vault-950/50 p-4">
+                <div>
+                  <div className="text-sm font-bold text-ink">{a.program_name}</div>
+                  <div className="font-mono text-[11px] text-ink-faint">
+                    {shortDid(a.recipient_did)} · <span className="text-seal">{a.tier}</span> · {rupiah(a.amount)}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <ActionBtn label="Check eligibility" busy={busy === a.recipient_did + "Check eligibility"}
-                    onClick={() => callContract(a.recipient_did, "/api/contract/check-eligibility", { recipient_did: a.recipient_did }, "Check eligibility")} />
-                  <ActionBtn label="Prepare batch" busy={busy === a.recipient_did + "Prepare batch"}
-                    onClick={() => callContract(a.recipient_did, "/api/contract/prepare-batch", {}, "Prepare batch")} />
-                  <ActionBtn label="Disburse" accent busy={busy === a.recipient_did + "Disburse"}
-                    onClick={() => callContract(a.recipient_did, "/api/contract/disburse", { recipient_did: a.recipient_did, amount: a.amount, tier: a.tier }, "Disburse")} />
+                  <ActionBtn label="Check eligibility" busy={busy === k + "Check eligibility"}
+                    onClick={() => callContract(k + "Check eligibility", a.recipient_did, "/api/contract/check-eligibility", { recipient_did: a.recipient_did, program_id: a.program_id }, "Check eligibility")} />
+                  <ActionBtn label="Prepare batch" busy={busy === k + "Prepare batch"}
+                    onClick={() => callContract(k + "Prepare batch", a.recipient_did, "/api/contract/prepare-batch", { program_id: a.program_id }, "Prepare batch")} />
+                  <ActionBtn label="Disburse" accent busy={busy === k + "Disburse"}
+                    onClick={() => callContract(k + "Disburse", a.recipient_did, "/api/contract/disburse", { recipient_did: a.recipient_did, program_id: a.program_id, amount: a.amount, tier: a.tier }, "Disburse")} />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

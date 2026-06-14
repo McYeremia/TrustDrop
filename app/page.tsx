@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteNav } from "@/app/_ui/SiteNav";
 import { SiteFooter } from "@/app/_ui/SiteFooter";
 import { LiveStats } from "@/app/_ui/LiveStats";
+import { LiveStatCards } from "@/app/_ui/LiveStatCards";
 import { InteractiveBackground } from "@/app/_ui/InteractiveBackground";
 
 export default function Home() {
@@ -76,7 +77,7 @@ export default function Home() {
             </div>
 
             <h1
-              className="reveal text-[clamp(36px,5.2vw,62px)] font-black leading-[0.96] tracking-tighter text-white"
+              className="reveal text-[clamp(52px,7vw,72px)] font-black leading-[0.96] tracking-tighter text-white"
               style={{ animationDelay: "60ms" }}
             >
               Aid that
@@ -84,17 +85,15 @@ export default function Home() {
               can&rsquo;t be{" "}
               <span className="gold-shine gold-glow">skimmed</span>,
               <br />
-              <span style={{ color: "#1e1e1e" }}>faked, or leaked.</span>
+              <span style={{ color: "#999999" }}>faked, or leaked.</span>
             </h1>
 
             <p
               className="reveal mt-8 max-w-lg text-base leading-relaxed sm:text-lg"
-              style={{ color: "#8a8a8a", animationDelay: "150ms" }}
+              style={{ color: "#a0a0a0", animationDelay: "150ms" }}
             >
-              An AI agent verifies eligibility and disburses social aid on
-              behalf of an institution — while the citizen&rsquo;s identity
-              stays sealed inside the enclave, and every decision is recorded
-              on an immutable audit trail.
+              AI verifies eligibility. Identity stays sealed in the enclave.
+              Every disbursement is permanently audited.
             </p>
 
             <div
@@ -117,7 +116,7 @@ export default function Home() {
 
             <p
               className="reveal mt-8 text-sm italic"
-              style={{ color: "#484848", animationDelay: "310ms" }}
+              style={{ color: "#707070", animationDelay: "310ms" }}
             >
               Inspired by Indonesia&rsquo;s bansos leakage problem.
             </p>
@@ -232,47 +231,8 @@ export default function Home() {
       {/* ── Stats grid + CTA card ────────────────────────────────────────── */}
       <section className="relative z-10 mx-auto max-w-7xl px-6 pb-24 sm:px-10">
         <div className="grid gap-4 lg:grid-cols-3">
-          {/* Left 2 cols — 2×2 stats */}
-          <div className="grid grid-cols-2 gap-4 lg:col-span-2">
-            {[
-              {
-                v: "100%",
-                label: "Audit Coverage",
-                sub: "Every decision recorded on-chain",
-              },
-              {
-                v: "0 PII",
-                label: "Leaks to Agent",
-                sub: "Identity sealed in enclave always",
-              },
-              {
-                v: "< 2s",
-                label: "TEE Verification",
-                sub: "Real-time eligibility check",
-              },
-              {
-                v: "3",
-                label: "Fraud Types Blocked",
-                sub: "Skim, fake, ghost — all stopped",
-              },
-            ].map((stat, i) => (
-              <div
-                key={i}
-                className="reveal dark-stat-card rounded-2xl p-6 sm:p-8"
-                style={{ animationDelay: `${i * 55}ms` }}
-              >
-                <div className="gold-shine text-4xl font-black tracking-tight sm:text-5xl">
-                  {stat.v}
-                </div>
-                <div className="mt-3 text-sm font-bold text-white">
-                  {stat.label}
-                </div>
-                <div className="mt-1 text-xs" style={{ color: "#666" }}>
-                  {stat.sub}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Left 2 cols — live stats */}
+          <LiveStatCards />
 
           {/* Right col — CTA */}
           <div
@@ -347,7 +307,7 @@ export default function Home() {
               <div className="mb-5 flex items-center justify-between">
                 <span
                   className="text-3xl font-black"
-                  style={{ color: "#1f1f1f" }}
+                  style={{ color: "#444444" }}
                 >
                   {f.n}
                 </span>
@@ -365,7 +325,7 @@ export default function Home() {
               <h3 className="text-base font-bold text-white sm:text-lg">{f.t}</h3>
               <p
                 className="mt-2 text-sm leading-relaxed"
-                style={{ color: "#777" }}
+                style={{ color: "#999" }}
               >
                 {f.d}
               </p>

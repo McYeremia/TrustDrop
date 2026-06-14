@@ -5,6 +5,7 @@ import { rupiah, shortDid, SectionLabel } from "@/app/_ui/primitives";
 
 interface Decision {
   recipient_did: string;
+  program_name?: string;
   status: string;
   tier: string;
   decided_by?: string;
@@ -46,18 +47,18 @@ export default function AuditorConsole() {
 
       {/* Decisions */}
       <div className="overflow-hidden rounded-xl border border-line bg-vault-900/50">
-        <div className="grid grid-cols-[1.4fr_0.8fr_0.6fr_1.4fr] gap-3 border-b border-line/70 bg-vault-850 px-5 py-3 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
-          <span>recipient_did</span><span>status</span><span>tier</span><span>issuers</span>
+        <div className="grid grid-cols-[1.2fr_1.3fr_0.8fr_0.6fr] gap-3 border-b border-line/70 bg-vault-850 px-5 py-3 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+          <span>recipient_did</span><span>program</span><span>status</span><span>tier</span>
         </div>
         {decisions.length === 0 ? (
           <p className="py-8 text-center font-mono text-sm text-ink-faint">No decisions yet.</p>
         ) : (
           decisions.map((d) => (
-            <div key={d.recipient_did} className="grid grid-cols-[1.4fr_0.8fr_0.6fr_1.4fr] items-center gap-3 border-b border-line-soft px-5 py-3 font-mono text-sm last:border-0">
+            <div key={d.recipient_did + (d.program_name ?? "")} className="grid grid-cols-[1.2fr_1.3fr_0.8fr_0.6fr] items-center gap-3 border-b border-line-soft px-5 py-3 font-mono text-sm last:border-0">
               <span className="truncate text-ink-dim">{shortDid(d.recipient_did)}</span>
+              <span className="truncate text-ink-dim">{d.program_name ?? "—"}</span>
               <span className={d.status === "approved" ? "text-seal" : d.status === "rejected" ? "text-alert" : "text-ink-dim"}>{d.status}</span>
               <span className="text-ink">{d.tier || "—"}</span>
-              <span className="truncate text-ink-faint">{d.issuers?.join(", ") || "—"}</span>
             </div>
           ))
         )}

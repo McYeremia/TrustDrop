@@ -115,6 +115,37 @@ export default function DemoPage() {
         </div>
       </section>
 
+      {/* ── Try it CTA ───────────────────────────────────────────────────── */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 sm:px-10">
+        <div
+          className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5"
+          style={{ borderColor: "rgba(240,169,59,0.18)", background: "rgba(240,169,59,0.04)" }}
+        >
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-wider" style={{ color: "#555" }}>
+              Nothing showing yet?
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-white">
+              Run the full flow yourself — apply, approve, then disburse.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/app"
+              className="gold-btn rounded-full px-5 py-2.5 text-sm font-bold tracking-wide"
+            >
+              Start as Recipient →
+            </Link>
+            <Link
+              href="/how-it-works"
+              className="glass rounded-full px-5 py-2.5 text-sm font-medium tracking-wide text-white transition hover:bg-white/10"
+            >
+              How it works
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Money shot ───────────────────────────────────────────────────── */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-12 sm:px-10">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr]">

@@ -8,6 +8,21 @@ export function rupiah(n: number) {
   }).format(n);
 }
 
+export function rupiahCompact(n: number) {
+  if (n === 0) return "Rp 0";
+  if (n >= 1_000_000) {
+    const jt = n / 1_000_000;
+    const formatted = Number.isInteger(jt) ? String(jt) : jt.toFixed(1).replace(".", ",");
+    return `Rp ${formatted}jt`;
+  }
+  if (n >= 1_000) {
+    const rb = n / 1_000;
+    const formatted = Number.isInteger(rb) ? String(rb) : rb.toFixed(1).replace(".", ",");
+    return `Rp ${formatted}rb`;
+  }
+  return `Rp ${n}`;
+}
+
 export function shortDid(did: string) {
   if (!did?.startsWith("did:t3n:")) return did;
   const tail = did.slice("did:t3n:".length);

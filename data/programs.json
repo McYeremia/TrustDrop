@@ -1,0 +1,36 @@
+[
+  {
+    "program_id": "jkt-cash-2026",
+    "name": "Bansos Tunai Jakarta",
+    "institution": "Dinas Sosial DKI Jakarta",
+    "criteria": { "regions": ["JKT"], "income_brackets": ["low", "medium"] },
+    "benefit": { "mode": "tier" },
+    "budget": 50000000,
+    "period": "2026-07",
+    "dedup": true
+  },
+  {
+    "program_id": "bdg-food-2026",
+    "name": "Bansos Pangan Bandung",
+    "institution": "Dinas Sosial Kota Bandung",
+    "criteria": { "regions": ["BDG"], "income_brackets": ["low"] },
+    "benefit": { "mode": "flat", "flat_amount": 500000 },
+    "budget": 20000000,
+    "period": "2026-07",
+    "dedup": true
+  },
+  {
+    "program_id": "elderly-national-2026",
+    "name": "Bantuan Lansia Nasional",
+    "institution": "Kementerian Sosial RI",
+    "criteria": {
+      "regions": ["JKT", "BDG", "SBY", "SMG"],
+      "income_brackets": ["low", "medium"],
+      "household_statuses": ["elderly"]
+    },
+    "benefit": { "mode": "flat", "flat_amount": 300000 },
+    "budget": 30000000,
+    "period": "2026-07",
+    "dedup": true
+  }
+]

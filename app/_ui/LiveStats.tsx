@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { rupiah } from "./primitives";
+import { rupiahCompact } from "./primitives";
 
 interface Audit {
   decisions?: { status: string }[];
@@ -36,7 +36,7 @@ export function LiveStats() {
 
   const stats = [
     { v: String(disbursed.length), k: "Disbursements" },
-    { v: total ? rupiah(total) : "Rp 0", k: "Total aid delivered" },
+    { v: rupiahCompact(total), k: "Total aid delivered" },
     { v: String(approvals), k: "Eligibility approvals" },
     { v: "0", k: "PII seen by the agent" },
   ];
@@ -49,7 +49,7 @@ export function LiveStats() {
           className="glass glass-sheen reveal rounded-2xl p-6 text-center sm:p-8"
           style={{ animationDelay: `${i * 70}ms` }}
         >
-          <div className="text-3xl font-semibold tracking-tight text-seal sm:text-4xl">{s.v}</div>
+          <div className="text-2xl font-semibold tracking-tight text-seal sm:text-3xl">{s.v}</div>
           <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">{s.k}</div>
         </div>
       ))}

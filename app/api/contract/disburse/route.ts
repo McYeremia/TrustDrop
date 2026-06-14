@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
       period: b.period ?? process.env.DISBURSE_PERIOD ?? "2026-07",
       run_id: `run-${Date.now()}`,
       tier: b.tier,
+      program_id: b.program_id,
     }),
   });
   const provider = await r.json();

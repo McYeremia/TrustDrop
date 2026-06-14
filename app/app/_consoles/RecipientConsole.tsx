@@ -9,33 +9,48 @@ interface Attestation {
   issued_at: string;
   signature: string;
 }
+type ProgramMatch =
+  | { program_id: string; name: string; institution: string; period: string; eligible: true; tier: string; amount: number }
+  | { program_id: string; name: string; institution: string; period: string; eligible: false; reason: string };
+
 interface AttestResult {
   ok: boolean;
   reason?: string;
   recipient_did?: string;
   attributes?: { region_code: string; income_bracket: string; household_status: string };
   attestations?: Attestation[];
-  preview?: { eligible: boolean; tier?: string; amount?: number; reason?: string };
+  matches?: ProgramMatch[];
 }
 
 const DEMO = [
-  { nik: "3201010101010006", hint: "low · elderly · JKT → G1" },
-  { nik: "3201010101010001", hint: "low · head of family · JKT → G2" },
-  { nik: "3201010101010004", hint: "medium · JKT → G3" },
-  { nik: "9999000000000001", hint: "high income → rejected" },
+  { nik: "3201010101010006", hint: "JKT · low · elderly" },
+  { nik: "3201010101010004", hint: "JKT · medium · married" },
+  { nik: "3201010101010003", hint: "BDG · low · head" },
+  { nik: "9999000000000001", hint: "JKT · high income" },
 ];
+
+const REASON_LABEL: Record<string, string> = {
+  REGION_MISMATCH: "region not covered",
+  INCOME_MISMATCH: "income bracket not eligible",
+  HOUSEHOLD_MISMATCH: "household criteria not met",
+};
 
 export default function RecipientConsole() {
   const [nik, setNik] = useState("");
   const [att, setAtt] = useState<AttestResult | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [explaining, setExplaining] = useState(false);
 
   async function requestAttestation(value?: string) {
     const useNik = value ?? nik;
     setBusy(true);
     setApplyMsg(null);
     setAtt(null);
+    setExplanation(null);
+    setSelected(new Set());
     try {
       const res = await fetch("/api/issuer/attest", {
         method: "POST",
@@ -44,13 +59,43 @@ export default function RecipientConsole() {
       });
       const data: AttestResult = await res.json();
       setAtt(data);
+      // Default-check every eligible program.
+      if (data.ok && data.matches) {
+        setSelected(new Set(data.matches.filter((m) => m.eligible).map((m) => m.program_id)));
+      }
     } finally {
       setBusy(false);
     }
   }
 
+  function toggle(pid: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(pid)) next.delete(pid);
+      else next.add(pid);
+      return next;
+    });
+  }
+
+  async function explain() {
+    if (!att?.matches) return;
+    setExplaining(true);
+    setExplanation(null);
+    try {
+      const res = await fetch("/api/recipient/explain", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ matches: att.matches }),
+      });
+      const data = await res.json();
+      setExplanation(data.ok ? data.explanation : `Could not explain: ${data.error}`);
+    } finally {
+      setExplaining(false);
+    }
+  }
+
   async function apply() {
-    if (!att?.ok || !att.preview?.eligible) return;
+    if (!att?.ok || selected.size === 0) return;
     setBusy(true);
     try {
       const res = await fetch("/api/recipient/apply", {
@@ -60,19 +105,28 @@ export default function RecipientConsole() {
           recipient_did: att.recipient_did,
           attributes: att.attributes,
           attestations: att.attestations,
+          program_ids: [...selected],
         }),
       });
       const data = await res.json();
-      setApplyMsg(data.ok ? "✓ Application submitted — pending operator approval." : `✗ ${data.reason}`);
+      setApplyMsg(
+        data.ok
+          ? `✓ Submitted ${data.count} application${data.count > 1 ? "s" : ""} — pending operator review.`
+          : `✗ ${data.reason}`,
+      );
     } finally {
       setBusy(false);
     }
   }
 
+  const eligible = att?.matches?.filter((m) => m.eligible) ?? [];
+  const ineligible = att?.matches?.filter((m) => !m.eligible) ?? [];
+
   return (
     <div>
-      <SectionLabel n="R" title="Apply for social aid" sub="Prove identity · no file upload" />
+      <SectionLabel n="R" title="Find & claim social aid" sub="Prove identity · no file upload" />
 
+      {/* NIK input */}
       <div className="rounded-xl border border-line bg-vault-900/60 p-6">
         <label className="font-mono text-[11px] uppercase tracking-wider text-ink-faint">Your NIK (national ID)</label>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -87,7 +141,7 @@ export default function RecipientConsole() {
             disabled={busy || !nik}
             className="rounded-lg border border-seal/40 bg-seal/15 px-4 py-2 font-mono text-sm uppercase tracking-wider text-seal transition hover:bg-seal/25 disabled:opacity-40"
           >
-            Request attestation
+            Find aid for me
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -114,7 +168,7 @@ export default function RecipientConsole() {
 
       {att?.ok && (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {/* Certificate card */}
+          {/* Certificate */}
           <div className="relative overflow-hidden rounded-xl border border-pii/40 bg-gradient-to-b from-pii/[0.06] to-transparent p-6">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-display text-lg text-ink">Attestation certificate</span>
@@ -127,7 +181,7 @@ export default function RecipientConsole() {
               {att.attestations?.map((a) => (
                 <div key={a.issuer} className="rounded-lg border border-line bg-vault-950/60 p-3">
                   <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-pii">
-                    issuer · {a.issuer === "tax" ? "Tax Office" : "Civil Registry"}
+                    issuer · {a.issuer === "tax" ? "Tax Office (DJP)" : "Civil Registry (Dukcapil)"}
                   </div>
                   {Object.entries(a.claims).map(([k, v]) => (
                     <div key={k} className="flex justify-between font-mono text-sm">
@@ -139,30 +193,84 @@ export default function RecipientConsole() {
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-xs text-ink-faint">
+              The issuer signs your <span className="text-ink-dim">true facts</span>. The same facts are matched
+              against every program — you can&rsquo;t fake eligibility.
+            </p>
           </div>
 
-          {/* Eligibility preview */}
+          {/* Program matches */}
           <div className="rounded-xl border border-line bg-vault-900/60 p-6">
-            <div className="font-display text-lg text-ink">Eligibility preview</div>
-            <p className="mt-1 text-sm text-ink-dim">Instant — computed from attested attributes. Binding result requires operator approval.</p>
-            {att.preview?.eligible ? (
-              <div className="mt-5 rounded-lg border border-seal/40 bg-seal/10 p-5">
-                <div className="font-mono text-[11px] uppercase tracking-wider text-seal">looks eligible</div>
-                <div className="mt-1 font-display text-3xl text-seal">{att.preview.tier}</div>
-                <div className="font-mono text-sm text-ink">{rupiah(att.preview.amount ?? 0)}</div>
-              </div>
-            ) : (
-              <div className="mt-5 rounded-lg border border-alert/40 bg-alert/10 p-5">
-                <div className="font-mono text-[11px] uppercase tracking-wider text-alert">not eligible</div>
-                <div className="mt-1 font-mono text-sm text-ink-dim">{att.preview?.reason}</div>
+            <div className="flex items-center justify-between">
+              <div className="font-display text-lg text-ink">Programs matched to you</div>
+              <button
+                onClick={explain}
+                disabled={explaining}
+                className="rounded-full border border-line bg-vault-850 px-3 py-1 font-mono text-[11px] text-ink-dim transition hover:text-ink disabled:opacity-40"
+              >
+                {explaining ? "…" : "✨ Explain with AI"}
+              </button>
+            </div>
+
+            {explanation && (
+              <div className="mt-3 rounded-lg border border-seal/30 bg-seal/5 p-3 text-sm leading-relaxed text-ink-dim">
+                {explanation}
               </div>
             )}
+
+            {/* Eligible — checkboxes, default checked */}
+            <div className="mt-4 space-y-2">
+              {eligible.length === 0 && (
+                <div className="rounded-lg border border-alert/30 bg-alert/5 p-4 font-mono text-sm text-ink-dim">
+                  You don&rsquo;t qualify for any program with these attributes.
+                </div>
+              )}
+              {eligible.map((m) =>
+                m.eligible ? (
+                  <label
+                    key={m.program_id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-seal/30 bg-seal/[0.06] p-3 transition hover:bg-seal/10"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(m.program_id)}
+                      onChange={() => toggle(m.program_id)}
+                      className="size-4 accent-[var(--seal)]"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-ink">{m.name}</div>
+                      <div className="font-mono text-[11px] text-ink-faint">{m.institution}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm text-seal">{rupiah(m.amount)}</div>
+                      <div className="font-mono text-[10px] text-ink-faint">{m.tier}</div>
+                    </div>
+                  </label>
+                ) : null,
+              )}
+            </div>
+
+            {/* Ineligible — informational */}
+            {ineligible.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">not eligible</div>
+                {ineligible.map((m) =>
+                  !m.eligible ? (
+                    <div key={m.program_id} className="flex items-center justify-between font-mono text-[11px]">
+                      <span className="text-ink-faint line-through">{m.name}</span>
+                      <span className="text-alert">{REASON_LABEL[m.reason] ?? m.reason}</span>
+                    </div>
+                  ) : null,
+                )}
+              </div>
+            )}
+
             <button
               onClick={apply}
-              disabled={busy || !att.preview?.eligible}
+              disabled={busy || selected.size === 0}
               className="mt-5 w-full rounded-lg border border-seal/40 bg-seal/15 px-4 py-2.5 font-mono text-sm uppercase tracking-wider text-seal transition hover:bg-seal/25 disabled:opacity-40"
             >
-              Apply
+              {selected.size > 0 ? `Claim ${selected.size} program${selected.size > 1 ? "s" : ""}` : "Select a program"}
             </button>
             {applyMsg && <div className="mt-3 font-mono text-sm text-ink-dim">{applyMsg}</div>}
           </div>

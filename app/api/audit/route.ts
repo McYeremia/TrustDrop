@@ -13,6 +13,8 @@ export async function GET() {
   return NextResponse.json({
     decisions: applications.map((a) => ({
       recipient_did: a.recipient_did,
+      program_id: a.program_id,
+      program_name: a.program_name,
       status: a.status,
       tier: a.tier,
       decided_by: a.decided_by,

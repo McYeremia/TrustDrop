@@ -19,8 +19,8 @@
   --ink-dim: #8ba3a4;
   --ink-faint: #54696b;
 
-  --seal: #2fd3a5;        /* emerald — verified / sealed / no-PII */
-  --seal-deep: #0f5f4c;
+  --seal: #f0a93b;        /* gold — primary accent */
+  --seal-deep: #7a4a08;
   --pii: #f0a93b;         /* amber — PII present (inside enclave only) */
   --pii-deep: #6b4410;
   --alert: #e8654f;       /* coral — denied / failure */
@@ -59,8 +59,8 @@ html {
 
 body {
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(47, 211, 165, 0.06), transparent 60%),
-    radial-gradient(900px 500px at -5% 110%, rgba(240, 169, 59, 0.045), transparent 55%),
+    radial-gradient(1200px 600px at 80% -10%, rgba(240, 169, 59, 0.07), transparent 60%),
+    radial-gradient(900px 500px at -5% 110%, rgba(240, 169, 59, 0.04), transparent 55%),
     var(--vault-950);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
@@ -105,8 +105,8 @@ body {
 }
 
 @keyframes seal-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 211, 165, 0.35); }
-  50% { box-shadow: 0 0 0 8px rgba(47, 211, 165, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 169, 59, 0.35); }
+  50% { box-shadow: 0 0 0 8px rgba(240, 169, 59, 0); }
 }
 .seal-pulse { animation: seal-pulse 2.4s ease-in-out infinite; }
 
@@ -122,4 +122,328 @@ body {
 }
 .ledger-in { animation: ledger-in 0.7s ease-out both; }
 
+/* ── Refresh: security-document layer ───────────────────────────────── */
+
+/* Guilloché — engine-turned line texture like a banknote / certificate. */
+.guilloche {
+  background-image:
+    repeating-radial-gradient(circle at 18% 12%, transparent 0 9px, rgba(240, 169, 59, 0.05) 9px 10px),
+    repeating-radial-gradient(circle at 82% 28%, transparent 0 11px, rgba(240, 169, 59, 0.04) 11px 12px),
+    repeating-radial-gradient(circle at 60% 88%, transparent 0 13px, rgba(240, 169, 59, 0.03) 13px 14px);
+  -webkit-mask-image: radial-gradient(120% 100% at 50% 0%, black, transparent 78%);
+  mask-image: radial-gradient(120% 100% at 50% 0%, black, transparent 78%);
+}
+
+/* Big editorial stroke for hero display type. */
+.headline {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.02em;
+  line-height: 0.94;
+  font-weight: 600;
+}
+
+/* Hairline divider with a centered seal gap. */
+.rule-seal {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line) 12%, var(--line) 88%, transparent);
+}
+
+/* Slow rotating ring for the hero seal. */
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.spin-slow { animation: spin-slow 28s linear infinite; }
+@keyframes spin-rev { to { transform: rotate(-360deg); } }
+.spin-rev { animation: spin-rev 40s linear infinite; }
+
+/* Conic shimmer for accent gradient borders. */
+@keyframes orbit { to { transform: rotate(360deg); } }
+.gradient-border {
+  position: relative;
+  isolation: isolate;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from 0deg, var(--seal), transparent 25%, transparent 75%, var(--seal));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+  animation: orbit 6s linear infinite;
+  z-index: -1;
+}
+
+/* Staggered load reveal: add inline animationDelay per item. */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(18px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.reveal { animation: reveal 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Marquee strip (audit ticker / trust signals). */
+@keyframes marquee { to { transform: translateX(-50%); } }
+.marquee { display: inline-flex; white-space: nowrap; animation: marquee 28s linear infinite; }
+
+/* Numbered tag in a sealed disc. */
+.disc {
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--seal) 40%, transparent);
+  background: color-mix(in oklab, var(--seal) 10%, transparent);
+  color: var(--seal);
+}
+
+/* ── Liquid glass layer (dark) ───────────────────────────────────────── */
+
+/* iOS "Liquid Glass": strong real-time blur frosts the moving network behind
+   into soft bokeh, so text stays crisp; light tint + specular edge for depth. */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035));
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 20px 50px -26px rgba(0, 0, 0, 0.7);
+}
+.glass-strong {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(40px) saturate(190%);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 30px 70px -30px rgba(0, 0, 0, 0.75);
+}
+/* Curved specular highlight at the top edge — the iOS "lit glass" cue. */
+.glass-sheen { position: relative; }
+.glass-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(130% 80% at 50% -25%, rgba(255, 255, 255, 0.20), transparent 55%);
+}
+
+/* Animated gold sheen sweeping across accent words in headings. */
+@keyframes shine { to { background-position: 200% center; } }
+.text-shine {
+  background: linear-gradient(100deg, #f0a93b 0%, #ffd060 28%, #f0a93b 55%, #ffe080 78%, #f0a93b 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shine 5s linear infinite;
+}
+.text-glow { filter: drop-shadow(0 2px 22px rgba(240, 169, 59, 0.35)); }
+
+/* Eyebrow kicker label above section headings. */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--seal);
+}
+.kicker::before {
+  content: "";
+  width: 1.6rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--seal));
+}
+
+/* Hand-drawn underline flourish for an emphasised word. */
+.flourish { position: relative; white-space: nowrap; }
+.flourish > svg { position: absolute; left: 0; bottom: -0.32em; width: 100%; height: 0.4em; overflow: visible; }
+
+@media (prefers-reduced-motion: reduce) { .text-shine { animation: none; } }
+
+/* Soft scrim that keeps headline text legible over the live network (no panel). */
+.text-scrim { position: relative; }
+.text-scrim > * { position: relative; z-index: 1; }
+.text-scrim::before {
+  content: "";
+  position: absolute;
+  inset: -12% -8%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(58% 60% at 50% 42%, rgba(6, 10, 12, 0.72), rgba(6, 10, 12, 0) 72%);
+  filter: blur(8px);
+}
+
+/* Soft ambient light blobs for atmospheric depth. */
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  pointer-events: none;
+  opacity: 0.6;
+}
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, -4%) scale(1.08); }
+}
+.drift { animation: drift 16s ease-in-out infinite; }
+.drift-slow { animation: drift 24s ease-in-out infinite; }
+
+/* Hairline radial glow behind a primary CTA. */
+.cta-glow { position: relative; }
+.cta-glow::after {
+  content: "";
+  position: absolute;
+  inset: -40% -10%;
+  background: radial-gradient(closest-side, rgba(240, 169, 59, 0.35), transparent 70%);
+  filter: blur(24px);
+  z-index: -1;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift, .drift-slow, .spin-slow, .spin-rev, .marquee, .seal-pulse, .reveal, .rise, .stamp { animation: none !important; }
+  .reveal, .rise, .stamp { opacity: 1 !important; transform: none !important; filter: none !important; }
+}
+
+/* ── Paper theme: warm security-document / civic gazette (light) ──────── */
+.paper {
+  --vault-950: #e7e0d0;   /* page */
+  --vault-900: #f4efe4;   /* card */
+  --vault-850: #ece5d6;
+  --vault-800: #ded5c0;
+  --vault-700: #cfc4ab;
+  --line: #c8bda3;
+  --line-soft: #d8cfb9;
+  --ink: #181b18;
+  --ink-dim: #555b4f;
+  --ink-faint: #8a8470;
+  --seal: #0c6a4f;        /* deep emerald on paper */
+  --pii: #9a5b08;         /* deep amber on paper */
+  --alert: #a3382a;
+  --background: #e7e0d0;
+  --foreground: var(--ink);
+  background:
+    radial-gradient(1100px 520px at 82% -8%, rgba(12, 106, 79, 0.10), transparent 60%),
+    radial-gradient(820px 460px at -6% 108%, rgba(154, 91, 8, 0.08), transparent 55%),
+    #e7e0d0;
+  color: var(--ink);
+}
+
+/* Gazette hairline rules. */
+.paper .rule-thick { height: 3px; background: var(--ink); }
+.paper .rule-thin { height: 1px; background: var(--ink); opacity: 0.8; }
+
+/* Official rubber stamp. */
+@keyframes stamp-in {
+  0% { opacity: 0; transform: rotate(-14deg) scale(1.4); }
+  60% { opacity: 1; transform: rotate(-9deg) scale(0.94); }
+  100% { transform: rotate(-8deg) scale(1); }
+}
+.stamp { animation: stamp-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Drop cap for the lede paragraph. */
+.dropcap::first-letter {
+  float: left;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 4.2rem;
+  line-height: 0.78;
+  font-weight: 600;
+  padding: 0.1rem 0.6rem 0 0;
+  color: var(--seal);
+}
+
 * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+/* ── Gold accent + dark UI (inspired design) ─────────────────────────── */
+
+/* Aliases that map to text-shine/text-glow (now gold throughout). */
+.gold-shine {
+  background: linear-gradient(100deg, #f0a93b 0%, #ffd060 28%, #f0a93b 55%, #ffe080 78%, #f0a93b 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shine 5s linear infinite;
+}
+.gold-glow { filter: drop-shadow(0 2px 32px rgba(240, 169, 59, 0.45)); }
+
+/* Large brand watermark behind the hero section. */
+.watermark-bg {
+  position: absolute;
+  top: 70px;
+  left: -10px;
+  font-size: clamp(108px, 20vw, 300px);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.88;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.038);
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Dark stat card: near-black with hairline border + gold hover glow. */
+.dark-stat-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.dark-stat-card:hover {
+  background: rgba(255, 255, 255, 0.042);
+  border-color: rgba(240, 169, 59, 0.28);
+  box-shadow: 0 0 28px rgba(240, 169, 59, 0.08), inset 0 0 24px rgba(240, 169, 59, 0.03);
+}
+
+/* CTA card with gold edge glow on hover. */
+.cta-dark-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.cta-dark-card:hover {
+  border-color: rgba(240, 169, 59, 0.35);
+  box-shadow: 0 0 40px rgba(240, 169, 59, 0.1);
+}
+
+/* Gold primary button. */
+.gold-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #f5b042 0%, #d4880a 100%);
+  color: #0a0808;
+  transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 4px 28px rgba(240, 169, 59, 0.28);
+}
+.gold-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 38px rgba(240, 169, 59, 0.4);
+}
+
+/* Crystal floating animations. */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33%       { transform: translateY(-16px) rotate(1.8deg); }
+  66%       { transform: translateY(-9px) rotate(-1.2deg); }
+}
+.float-slow { animation: float-slow 8s ease-in-out infinite; }
+
+@keyframes float-med {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%       { transform: translateY(-22px) rotate(-2.8deg); }
+}
+.float-med { animation: float-med 5.5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .float-slow, .float-med { animation: none !important; }
+  .gold-shine { animation: none !important; -webkit-text-fill-color: #f0a93b !important; background: none !important; }
+}

@@ -15,8 +15,7 @@ pub struct PrepareBatchReq {
 #[derive(serde::Deserialize)]
 pub struct BatchPolicy {
     pub eligible_regions: alloc::vec::Vec<alloc::string::String>,
-    pub eligible_income_bracket: String,
-    pub amount_per_recipient: f64,
+    pub eligible_income_brackets: alloc::vec::Vec<alloc::string::String>,
     pub total_budget: f64,
 }
 
@@ -39,6 +38,10 @@ struct EligibilityRecord {
     pub recipient_did: String,
     pub region_code: String,
     pub income_bracket: String,
+    #[serde(default)]
+    pub household_status: String,
+    #[serde(default)]
+    pub attested: bool,
 }
 
 pub fn prepare_batch(input: &[u8]) -> Result<Vec<u8>, String> {
@@ -71,8 +74,8 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
     let dedup_map = crate::map_name(&tid, &alloc::format!("disbursed-{}", req.period));
 
     let _ = logging::info(&alloc::format!(
-        "prepare-batch: scanning recipients for period {}, budget {}, amount/recipient {}",
-        req.period, req.policy.total_budget, req.policy.amount_per_recipient
+        "prepare-batch: scanning recipients for period {}, budget {} (amounts from tiers)",
+        req.period, req.policy.total_budget
     ));
 
     // Read the recipient index (list of all recipient DIDs)
@@ -88,15 +91,6 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
     let mut total_amount = 0.0_f64;
 
     for did in &recipient_dids {
-        // Budget check
-        if total_amount + req.policy.amount_per_recipient > req.policy.total_budget {
-            let _ = logging::info(&alloc::format!(
-                "prepare-batch: budget exhausted at {} of {}",
-                total_amount, req.policy.total_budget
-            ));
-            break;
-        }
-
         // Dedup check — skip if already disbursed this period
         let already_disbursed = kv_store::get(&dedup_map, did.as_bytes())
             .map_err(|e| alloc::format!("kv read dedup: {e}"))?;
@@ -132,21 +126,41 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
             }
         };
 
+        // Must be attested by an issuer
+        if !profile.attested {
+            continue;
+        }
+
         // Region check
         if !req.policy.eligible_regions.contains(&profile.region_code) {
             continue;
         }
 
-        // Income bracket check
-        if profile.income_bracket != req.policy.eligible_income_bracket {
+        // Income bracket check against allowed set
+        if !req.policy.eligible_income_brackets.contains(&profile.income_bracket) {
             continue;
+        }
+
+        // Amount is decided by the contract's tier rule, NOT by the operator.
+        let amount = match crate::eligibility::assign_tier(&profile.income_bracket, &profile.household_status) {
+            Some((_, amount)) => amount,
+            None => continue,
+        };
+
+        // Per-tier budget check
+        if total_amount + amount > req.policy.total_budget {
+            let _ = logging::info(&alloc::format!(
+                "prepare-batch: budget exhausted at {} of {}",
+                total_amount, req.policy.total_budget
+            ));
+            break;
         }
 
         approved.push(ApprovedRecipient {
             recipient_did: profile.recipient_did,
-            amount: req.policy.amount_per_recipient,
+            amount,
         });
-        total_amount += req.policy.amount_per_recipient;
+        total_amount += amount;
     }
 
     let count = approved.len() as u32;
@@ -173,8 +187,7 @@ mod tests {
             "period": "2026-06",
             "policy": {
                 "eligible_regions": ["JKT"],
-                "eligible_income_bracket": "low",
-                "amount_per_recipient": 500000.0,
+                "eligible_income_brackets": ["low", "medium"],
                 "total_budget": 5000000.0
             }
         }))

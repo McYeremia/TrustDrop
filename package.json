@@ -9,9 +9,12 @@
     "lint": "eslint",
     "contract:build": "cd contract && cargo build --target wasm32-wasip2 --release",
     "contract:test": "cd contract && cargo test --lib",
+    "test": "vitest run",
     "provision": "npx tsx scripts/provision.ts"
   },
   "dependencies": {
+    "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^2.2.0",
     "@terminal3/t3n-sdk": "^3.5.2",
     "@upstash/redis": "^1.38.0",
     "groq-sdk": "^1.2.1",
@@ -27,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

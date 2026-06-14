@@ -1,0 +1,16 @@
+[
+  { "nik": "3201010101010001", "recipient_did": "did:t3n:r001", "region_code": "JKT", "income_bracket": "low", "household_status": "head_of_family" },
+  { "nik": "3201010101010002", "recipient_did": "did:t3n:r002", "region_code": "JKT", "income_bracket": "low", "household_status": "single_parent" },
+  { "nik": "3201010101010003", "recipient_did": "did:t3n:r003", "region_code": "BDG", "income_bracket": "low", "household_status": "head_of_family" },
+  { "nik": "3201010101010004", "recipient_did": "did:t3n:r004", "region_code": "JKT", "income_bracket": "medium", "household_status": "married" },
+  { "nik": "3201010101010005", "recipient_did": "did:t3n:r005", "region_code": "SBY", "income_bracket": "low", "household_status": "head_of_family" },
+  { "nik": "3201010101010006", "recipient_did": "did:t3n:r006", "region_code": "JKT", "income_bracket": "low", "household_status": "elderly" },
+  { "nik": "3201010101010007", "recipient_did": "did:t3n:r007", "region_code": "BDG", "income_bracket": "medium", "household_status": "married" },
+  { "nik": "3201010101010008", "recipient_did": "did:t3n:r008", "region_code": "JKT", "income_bracket": "low", "household_status": "single_parent" },
+  { "nik": "3201010101010009", "recipient_did": "did:t3n:r009", "region_code": "SMG", "income_bracket": "low", "household_status": "disabled" },
+  { "nik": "3201010101010010", "recipient_did": "did:t3n:r010", "region_code": "JKT", "income_bracket": "low", "household_status": "elderly" },
+  { "nik": "3201010101010011", "recipient_did": "did:t3n:r011", "region_code": "SBY", "income_bracket": "medium", "household_status": "married" },
+  { "nik": "3201010101010012", "recipient_did": "did:t3n:r012", "region_code": "JKT", "income_bracket": "low", "household_status": "head_of_family" },
+  { "nik": "9999000000000001", "recipient_did": "did:t3n:x001", "region_code": "JKT", "income_bracket": "high", "household_status": "married" },
+  { "nik": "9999000000000002", "recipient_did": "did:t3n:x002", "region_code": "MDN", "income_bracket": "low", "household_status": "elderly" }
+]

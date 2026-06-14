@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { rupiah, shortDid, SectionLabel, Field, Corner, Empty } from "@/app/_ui/primitives";
 
 interface Disbursement {
   received_at: string;
@@ -15,21 +17,7 @@ interface Disbursement {
 }
 
 const CONTRACT = "z:cdbdf0…0100a:bansos-contracts";
-const VERSION = "v0.2.3";
-
-function shortDid(did: string) {
-  if (!did?.startsWith("did:t3n:")) return did;
-  const tail = did.slice("did:t3n:".length);
-  return `did:t3n:${tail.slice(0, 6)}…${tail.slice(-4)}`;
-}
-
-function rupiah(n: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
+const VERSION = "v0.3.0";
 
 export default function Home() {
   const [rows, setRows] = useState<Disbursement[]>([]);
@@ -85,16 +73,22 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-4 text-[11px] text-ink-dim">
-          <span className="hidden font-mono sm:inline">{CONTRACT}</span>
+          <span className="hidden font-mono lg:inline">{CONTRACT}</span>
           <span className="rounded-full border border-line bg-vault-850 px-2 py-1 font-mono text-ink-dim">
             {VERSION}
           </span>
-          <span className="flex items-center gap-1.5 rounded-full border border-line bg-vault-850 px-2.5 py-1 font-mono uppercase tracking-wider">
+          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-vault-850 px-2.5 py-1 font-mono uppercase tracking-wider sm:flex">
             <span
               className={`size-1.5 rounded-full ${live ? "bg-seal seal-pulse" : "bg-ink-faint"}`}
             />
             {live ? "testnet · live" : "connecting"}
           </span>
+          <Link
+            href="/app"
+            className="rounded-full border border-seal/40 bg-seal/10 px-3 py-1 font-mono uppercase tracking-wider text-seal transition hover:bg-seal/20"
+          >
+            Open console →
+          </Link>
         </div>
       </header>
 
@@ -144,10 +138,36 @@ export default function Home() {
           (<span className="not-italic">bansos</span>) doesn&rsquo;t always
           reach the people it&rsquo;s meant for.
         </p>
+        <div className="rise mt-9 flex flex-wrap gap-3" style={{ animationDelay: "260ms" }}>
+          <Link
+            href="/app"
+            className="rounded-lg border border-seal/40 bg-seal/15 px-5 py-2.5 font-mono text-sm uppercase tracking-wider text-seal transition hover:bg-seal/25"
+          >
+            Launch the console →
+          </Link>
+          <a
+            href="#how"
+            className="rounded-lg border border-line bg-vault-850 px-5 py-2.5 font-mono text-sm uppercase tracking-wider text-ink-dim transition hover:text-ink"
+          >
+            How it works
+          </a>
+        </div>
       </section>
 
       {/* ── Pipeline ── */}
       <Pipeline />
+
+      {/* ── Thesis ── */}
+      <ThesisBand />
+
+      {/* ── Frauds eliminated ── */}
+      <FraudsEliminated />
+
+      {/* ── How it works ── */}
+      <HowItWorks />
+
+      {/* ── Live stats ── */}
+      <LiveStats rows={rows} />
 
       {/* ── Money shot ── */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 sm:px-10">
@@ -192,20 +212,6 @@ function SealMark() {
         <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="var(--seal)" strokeWidth="1.5" strokeLinejoin="round" />
         <path d="M8.5 12l2.5 2.5 4.5-5" stroke="var(--seal)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-    </div>
-  );
-}
-
-function SectionLabel({ n, title, sub }: { n: string; title: string; sub: string }) {
-  return (
-    <div className="mb-6 flex items-end justify-between gap-4 border-b border-line/60 pb-3">
-      <div className="flex items-baseline gap-3">
-        <span className="font-mono text-xs text-seal">{n}</span>
-        <h2 className="font-display text-2xl tracking-tight text-ink">{title}</h2>
-      </div>
-      <span className="hidden text-right font-mono text-[11px] uppercase tracking-wider text-ink-faint sm:block">
-        {sub}
-      </span>
     </div>
   );
 }
@@ -315,39 +321,6 @@ function AgentView({ d }: { d?: Disbursement }) {
   );
 }
 
-function Field({
-  label,
-  value,
-  pii,
-  seal,
-  dim,
-}: {
-  label: string;
-  value: string;
-  pii?: boolean;
-  seal?: boolean;
-  dim?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-ink-faint">{label}</span>
-      <span
-        className={`truncate text-right ${
-          pii
-            ? "rounded bg-pii/15 px-2 py-0.5 font-semibold text-pii"
-            : seal
-              ? "font-semibold text-seal"
-              : dim
-                ? "text-ink-dim"
-                : "text-ink"
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function Divider() {
   return (
     <div className="relative flex items-center justify-center lg:flex-col">
@@ -358,27 +331,6 @@ function Divider() {
           <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="var(--ink-dim)" strokeWidth="1.5" />
         </svg>
       </div>
-    </div>
-  );
-}
-
-function Corner({ color }: { color: string }) {
-  return (
-    <div
-      className="pointer-events-none absolute -right-px -top-px size-16"
-      style={{ background: `linear-gradient(225deg, ${color}22, transparent 60%)` }}
-    />
-  );
-}
-
-function Empty({ tone }: { tone: "pii" | "seal" }) {
-  return (
-    <div
-      className={`rounded-lg border border-dashed py-10 text-center font-mono text-xs ${
-        tone === "pii" ? "border-pii/25 text-pii/60" : "border-seal/25 text-seal/60"
-      }`}
-    >
-      awaiting the first disbursement…
     </div>
   );
 }
@@ -418,5 +370,109 @@ function Ledger({ rows, fresh }: { rows: Disbursement[]; fresh: Set<string> }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/* ───────────────────────── Landing feature sections ───────────────────────── */
+
+function ThesisBand() {
+  const cards = [
+    { k: "How much", v: "Decided by the contract", d: "Benefit tiers are fixed in the TEE rule — the operator can never set or inflate an amount.", tone: "seal" },
+    { k: "Who", v: "Sealed in the enclave", d: "The citizen's name is resolved only inside the TEE at payment time; the agent never sees it.", tone: "seal" },
+    { k: "Eligibility", v: "Proven by signed attestations", d: "Issuers (tax, civil registry) sign the truth. A forged claim simply won't verify.", tone: "pii" },
+  ] as const;
+  return (
+    <section className="relative z-10 mx-auto max-w-6xl px-6 pb-14 sm:px-10">
+      <SectionLabel n="—" title="The operator may only say “yes”" sub="Not “how much”, not “who”" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {cards.map((c) => (
+          <div key={c.k} className="rounded-xl border border-line bg-vault-900/60 p-5">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">{c.k}</div>
+            <div className={`mt-1 font-display text-lg ${c.tone === "pii" ? "text-pii" : "text-seal"}`}>{c.v}</div>
+            <p className="mt-2 text-sm leading-snug text-ink-dim">{c.d}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FraudsEliminated() {
+  const frauds = [
+    { t: "Fake poverty letters (SKTM)", d: "A wealthy applicant can't make the tax office sign “low income” — attestations come from authoritative issuers, not forgeable paper." },
+    { t: "Ghost / duplicate recipients", d: "One identity, one claim per period — the contract's dedup ledger rejects repeats." },
+    { t: "Skimming the amount", d: "Operators never type a number; the contract assigns the tier amount, so there's nothing to mark up." },
+  ];
+  return (
+    <section className="relative z-10 mx-auto max-w-6xl px-6 pb-14 sm:px-10">
+      <SectionLabel n="—" title="Three frauds, eliminated" sub="By design, not by trust" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {frauds.map((f) => (
+          <div key={f.t} className="rounded-xl border border-line bg-gradient-to-b from-alert/[0.05] to-transparent p-5">
+            <div className="mb-2 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-alert">
+              <span className="size-1.5 rounded-full bg-alert" /> blocked
+            </div>
+            <div className="font-display text-base text-ink">{f.t}</div>
+            <p className="mt-2 text-sm leading-snug text-ink-dim">{f.d}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  const steps = [
+    { k: "Apply", d: "Citizen proves identity (NIK); issuers sign their true attributes. No file upload." },
+    { k: "Preview", d: "Signatures verified instantly — “looks eligible: G1” or “not eligible”." },
+    { k: "Approve", d: "Operator sees attested attributes only (no PII, no raw numbers) and approves." },
+    { k: "Decide", d: "check-eligibility (live) assigns tier & amount from the contract rule." },
+    { k: "Disburse", d: "The enclave resolves the name and pays the provider; the agent sees only a tx_id." },
+    { k: "Receive", d: "The recipient sees their aid landed — every step on an immutable audit trail." },
+  ];
+  return (
+    <section id="how" className="relative z-10 mx-auto max-w-6xl px-6 pb-14 sm:px-10">
+      <SectionLabel n="—" title="How it works" sub="Apply → approve → disburse" />
+      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {steps.map((s, i) => (
+          <li key={s.k} className="flex gap-3 rounded-xl border border-line bg-vault-900/50 p-4">
+            <span className="font-mono text-sm text-seal">{`0${i + 1}`}</span>
+            <div>
+              <div className="font-display text-base text-ink">{s.k}</div>
+              <p className="mt-1 text-sm leading-snug text-ink-dim">{s.d}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-6">
+        <Link
+          href="/app"
+          className="inline-block rounded-lg border border-seal/40 bg-seal/15 px-5 py-2.5 font-mono text-sm uppercase tracking-wider text-seal transition hover:bg-seal/25"
+        >
+          Try it in the console →
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function LiveStats({ rows }: { rows: Disbursement[] }) {
+  const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
+  const stats = [
+    { k: "Recipients aided", v: String(rows.length) },
+    { k: "Total disbursed", v: rupiah(total) },
+    { k: "PII seen by the agent", v: "0" },
+  ];
+  return (
+    <section className="relative z-10 mx-auto max-w-6xl px-6 pb-14 sm:px-10">
+      <div className="grid gap-4 rounded-2xl border border-line bg-vault-900/60 p-6 sm:grid-cols-3">
+        {stats.map((s) => (
+          <div key={s.k} className="text-center">
+            <div className="font-display text-3xl text-seal">{s.v}</div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-wider text-ink-faint">{s.k}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

@@ -38,7 +38,7 @@ if (!T3N_API_KEY || T3N_API_KEY === "isi_dengan_developer_key_dari_claim_page") 
 }
 
 const CONTRACT_TAIL = "bansos-contracts";
-const CONTRACT_VERSION = "0.2.3"; // bump on each re-register (0.2.x = Temuan #3; .2/.3 = Temuan #T2-9 placeholder fields: full name)
+const CONTRACT_VERSION = "0.3.0"; // 0.3.0 = tiers (G1/G2/G3) + attested-gate; eligibility filled via operator approval
 const DISBURSEMENT_PERIOD = process.env.DISBURSE_PERIOD ?? "2026-07";
 
 async function main() {
@@ -150,50 +150,28 @@ async function main() {
     }
   }
 
-  // ─── 5. Seed PII-free eligibility records ───
-  // The contract reads ONLY this map. We project out region_code/income_bracket
-  // and DELIBERATELY drop all PII (bank_account/legal_name/nik). PII lives in
-  // each recipient's own T3N profile, resolved via {{profile.*}} at disbursement.
-  console.log("5️⃣  Seeding PII-free eligibility records...");
-  const recipientsRaw = await readFile("data/recipients.json", "utf-8");
-  const recipients = JSON.parse(recipientsRaw) as Array<{
-    recipient_did: string;
-    region_code: string;
-    income_bracket: string;
-  }>;
-
-  // Build index (list of all DIDs)
-  const recipientDids = recipients.map((r) => r.recipient_did);
+  // ─── 5. Initialise an EMPTY eligibility map ───
+  // In the v0.3.0 model recipients are NOT pre-seeded. A recipient self-applies
+  // with issuer-signed attestations; the operator approves; only then is their
+  // PII-free eligibility record written (by the operator-decision API route).
+  // Here we just initialise an empty index so the contract can read it.
+  console.log("5️⃣  Initialising empty eligibility map (filled via approval)...");
   await tenant.executeControl("map-entry-set", {
     map_name: tenant.canonicalName("eligibility"),
     key: "_index",
-    value: JSON.stringify(recipientDids),
+    value: JSON.stringify([]),
   });
-  console.log(`   ✅ Seeded eligibility index (${recipientDids.length} entries)`);
+  console.log("   ✅ eligibility _index initialised to []");
 
-  // Seed each PII-free eligibility record
-  for (const r of recipients) {
-    await tenant.executeControl("map-entry-set", {
-      map_name: tenant.canonicalName("eligibility"),
-      key: r.recipient_did,
-      value: JSON.stringify({
-        recipient_did: r.recipient_did,
-        region_code: r.region_code,
-        income_bracket: r.income_bracket,
-      }),
-    });
-  }
-  console.log(`   ✅ Seeded ${recipients.length} eligibility records (no PII)`);
-
-  // ─── 6. Seed default policy ───
-  console.log("6️⃣  Seeding default policy...");
+  // ─── 6. Seed default policy (tiers — contract decides amounts) ───
+  console.log("6️⃣  Seeding default policy with benefit tiers...");
   const defaultPolicy = {
     eligible_regions: ["JKT", "BDG", "SBY", "SMG"],
-    eligible_income_bracket: "low",
-    amount_per_recipient: 500000,
-    total_budget: 5000000,
+    eligible_income_brackets: ["low", "medium"],
+    total_budget: 50000000,
     period: DISBURSEMENT_PERIOD,
     dedup: true,
+    tiers: { G1: 700000, G2: 600000, G3: 400000 },
   };
   await tenant.executeControl("map-entry-set", {
     map_name: tenant.canonicalName("policy"),
@@ -251,7 +229,7 @@ async function main() {
   console.log(`Contract ID   : ${contractId}`);
   console.log(`Script Name   : ${TENANT_SCRIPT}`);
   console.log(`Period        : ${DISBURSEMENT_PERIOD}`);
-  console.log(`Recipients    : ${recipients.length}`);
+  console.log(`Eligibility   : empty (filled via operator approval)`);
   console.log(`\nNext: npm run dev`);
 }
 

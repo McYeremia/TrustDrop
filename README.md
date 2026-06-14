@@ -1,6 +1,8 @@
-# Agen Penyalur Bansos Terverifikasi
+# TrustDrop — Agen Penyalur Bansos Terverifikasi
 
-> AI agent yang memverifikasi kelayakan dan mencairkan bantuan sosial atas nama lembaga — **tanpa pernah memegang data pribadi warga atau kredensial keuangan** — dengan jejak audit yang tak bisa diubah. Dibangun di atas [Terminal 3 Agent Dev Kit](https://docs.terminal3.io).
+> AI agent yang memverifikasi kelayakan dan mencairkan bantuan sosial **atas nama lembaga** — tanpa pernah memegang data pribadi warga (nama, NIK, rekening) — dengan jejak audit yang tak bisa diubah. Dibangun di atas [Terminal 3 Agent Dev Kit](https://docs.terminal3.io).
+>
+> **Demo live:** [trustdrop26.vercel.app](https://trustdrop26.vercel.app)
 
 ---
 
@@ -8,132 +10,168 @@
 
 Penyaluran bantuan sosial menanggung dua beban yang saling bertentangan:
 
-- **Akurasi sasaran** menuntut verifikasi data pribadi warga (penghasilan, domisili, status keluarga) di banyak titik — operator, dinas, bank penyalur — sehingga rawan bocor dan disalahgunakan.
-- **Anti-fraud** menuntut jejak terverifikasi, yang sering tak ada — membuka celah data ganda, penerima fiktif, atau dana yang tak benar-benar sampai.
+- **Akurasi sasaran** menuntut verifikasi data pribadi warga di banyak titik — operator, dinas, bank penyalur — sehingga rawan bocor.
+- **Anti-fraud** menuntut jejak terverifikasi, yang sering tak ada — membuka celah data ganda, penerima fiktif, atau dana yang tak sampai.
 
 ## Solusi
 
-Sistem ini memisahkan **kemampuan bertindak** dari **kepemilikan rahasia**. Sebuah AI agent menyusun dan menjalankan pencairan, tetapi PII penerima dan kredensial penyalur disegel di dalam Trusted Execution Environment (TEE) milik Terminal 3 Network — agent tak pernah melihatnya. Setiap verifikasi dan pencairan dicatat ke audit ledger yang dapat diperiksa publik **tanpa membongkar identitas penerima**.
+TrustDrop memisahkan **kemampuan bertindak** dari **kepemilikan rahasia**. AI agent menyusun & menjalankan pencairan, tetapi PII penerima disegel di dalam **Trusted Execution Environment (TEE)** milik Terminal 3 Network (T3N) — agent tak pernah melihatnya. Saat eksekusi, agent hanya mengirim *instruksi* (tanpa PII); host T3N me-resolve data sensitif **di dalam enclave**, memanggil penyalur, lalu menyaring respons sebelum mengembalikan status.
 
-Saat eksekusi, agent hanya mengirim *instruksi* (tanpa PII). T3N me-resolve data sensitif di dalam enclave, memanggil penyalur, lalu menyaring respons sebelum mengembalikan status — sehingga data finansial tak pernah terekspos ke agent.
+**Garis batas PII (terbukti di kode):**
 
-## Fitur utama
-
-- **Identitas terverifikasi (DID)** untuk agent dan lembaga.
-- **Delegasi terikat policy** — lembaga menandatangani grant yang membatasi agent ke fungsi & host tertentu.
-- **Selective disclosure** — kelayakan diverifikasi lewat klaim/VC tanpa membuka nilai mentah data warga.
-- **Pencairan tanpa PII di agent** — data bank di-resolve di enclave via placeholder.
-- **Compliance gate** — tolak pencairan ganda atau di luar policy (kriteria, nominal, anggaran, periode).
-- **Audit ledger publik** — buktikan tiap pencairan sesuai scope tanpa mengungkap PII.
-
-## Arsitektur singkat
-
-```
-Operator (lembaga)  ->  AI Agent (di luar TEE)  ->  T3N / TEE contract  ->  Payment provider (sandbox)
-   atur policy            orkestrasi, tanpa PII       eksekusi tepercaya       terima PII via placeholder
-   setujui run            panggil contract            simpan PII + audit ledger
-```
-
-AI agent dan LLM berada **di luar** TEE dan tak pernah menyentuh PII; mereka hanya merencanakan dan memanggil fungsi contract.
-
-## Tech stack
-
-- **TEE contract:** Rust + `wit-bindgen`, target `wasm32-wasip2` (WASM component)
-- **SDK:** `@terminal3/t3n-sdk` (Node ≥ 18, TypeScript)
-- **Orkestrasi + frontend:** Next.js 16 (App Router, TypeScript, Tailwind)
-- **Reasoning agent:** Groq `llama-3.3-70b-versatile`
-- **Provider tiruan:** Next.js API route (mock disbursement endpoint)
+| Aktor | Lihat PII? | Alasan |
+|---|---|---|
+| AI Agent / Operator | ❌ | hanya kirim instruksi, terima `{status, tx_id}` |
+| Contract (WASM) | ❌ | hanya menulis marker `{{profile.*}}`; baca map kelayakan bebas-PII |
+| TEE Host (enclave) | ✅ (sesaat) | resolve placeholder lalu kirim ke provider; tak pernah ke WASM |
+| Payment provider | ✅ | memang butuh nama untuk membayar |
+| Audit ledger | ❌ | hanya `recipient_did` + nominal + status |
 
 ---
 
-## Prasyarat
+## Cara kerja (alur end-to-end)
 
-1. **Akun & token Terminal 3.** Buka [claim page](https://www.terminal3.io/claim-page), sign in dengan email kerja, masukkan campaign code hackathon jika ada. **Salin developer key segera** — hanya ditampilkan sekali. DID `did:t3n:...` dan test token otomatis ter-link.
+```
+1. Penerima onboard via OTP email → profil PII {first_name, last_name}
+   tersimpan di profil T3N MILIK PENERIMA SENDIRI.            [scripts/onboard-recipient.ts]
+
+2. Penerima tanda tangan grant (Agent Auth) → operator boleh
+   panggil execute-disbursement ke host yang diizinkan.       [agent-auth-update]
+
+3. Operator (berkredit) panggil execute-disbursement dengan
+   pii_did = penerima. TIDAK mengirim PII — hanya instruksi.  [contract/src/disburse.rs]
+
+4. DI DALAM ENCLAVE: host resolve {{profile.first_name}}
+   {{profile.last_name}} → "Budi Santoso", lalu POST ke
+   {MOCK_PROVIDER_URL}/api/mock-provider.                     [http-with-placeholders]
+
+5. Provider merekam nama ter-resolve (ke Upstash), membalas
+   hanya tx_id (respons tersanitasi, tanpa echo PII).         [app/api/mock-provider]
+
+6. Contract menulis dedup ledger + audit entry (tanpa PII),
+   membalas ke operator hanya {status, tx_id}.                [contract/src/disburse.rs]
+
+7. Dashboard menarik ledger & menampilkan kontras:
+   sisi provider melihat nama | sisi agent hanya tx_id.       [app/page.tsx]
+```
+
+Inilah **"money shot"**: satu transaksi, dua tingkat keterlihatan. Operator memegang **kredit & wewenang**; penerima memegang **PII-nya sendiri**; keduanya tak pernah bertukar PII plaintext.
+
+---
+
+## Arsitektur
+
+```
+Operator (lembaga)  ->  AI Agent (di luar TEE)  ->  T3N / TEE contract  ->  Payment provider
+   atur policy            orkestrasi, tanpa PII       eksekusi tepercaya       terima PII via placeholder
+   setujui run            panggil contract            resolve PII + audit       (mock: Next.js + Upstash)
+```
+
+### 1. TEE Contract — Rust → WASM (`contract/`)
+Crate Rust yang dikompilasi ke **WASM component** (`wasm32-wasip2`), jalan di dalam enclave T3N. Meng-export **3 fungsi** lewat interface WIT (`contract/wit/world.wit`):
+
+| Fungsi | File | Tugas | PII keluar? |
+|---|---|---|---|
+| `check-eligibility` | `src/eligibility.rs` | Cek 1 penerima vs policy (region + income bracket) | ❌ |
+| `prepare-batch` | `src/batch.rs` | Susun daftar pencairan dalam budget + cek dedup | ❌ |
+| `execute-disbursement` | `src/disburse.rs` | Bayar provider via placeholder, tulis dedup + audit | ❌ |
+
+> **Catatan resolusi placeholder:** host T3N me-resolve `{{profile.*}}` hanya dari **satu** subjek yang ter-bind (penerima), dan hanya field KYC kanonik. `bank_account` ditolak (`profile-ref`), `ssn` divalidasi format US — jadi yang di-resolve di demo ini adalah **nama lengkap warga**. Karena itu `execute-disbursement` dipanggil **per-penerima**, masing-masing ter-bind sebagai user context-nya sendiri (`pii_did`).
+
+### 2. Orkestrasi — TypeScript (`scripts/`)
+Menggerakkan siklus Agent Auth SDK: onboarding penerima (OTP email), commit profil PII, penandatanganan grant, dan invokasi pencairan. Skrip utama: `scripts/onboard-recipient.ts`.
+
+### 3. Provider tiruan + Dashboard — Next.js (`app/`)
+- `app/api/mock-provider/route.ts` — endpoint penyalur. `POST` menerima body ber-PII dari enclave & merekamnya; membalas **respons tersanitasi** (`tx_id` + `status`, tanpa echo PII). `GET` mengembalikan ledger.
+- `app/api/mock-provider/store.ts` — persistence: **Upstash Redis** bila env tersedia (wajib di Vercel karena serverless tak berbagi memori), fallback in-memory untuk dev lokal.
+- `app/page.tsx` — dashboard yang polling tiap 2.5 dtk dan menampilkan kontras "yang diterima provider" vs "yang dilihat agen".
+
+---
+
+## KV Maps (dibuat sebelum contract berjalan)
+
+| Map (`z:<tid>:<tail>`) | Isi | Dibaca contract? |
+|---|---|---|
+| `secrets` | API key provider | runtime |
+| `eligibility` | `recipient_did`, `region_code`, `income_bracket` + `_index` — **bebas-PII** | ya |
+| `policy` | policy aktif (key `current`) | ya |
+| `disbursed-<period>` | dedup ledger per periode | baca/tulis |
+| `audit` | audit entries (tanpa PII) | tulis |
+| *(profil PII penerima)* | `first_name`, `last_name` | **TIDAK** — hanya via placeholder |
+
+---
+
+## Tech stack
+
+- **TEE contract:** Rust + `wit-bindgen` 0.49, target `wasm32-wasip2` (WASM component) — v0.2.3
+- **SDK:** `@terminal3/t3n-sdk` (Node ≥ 18, TypeScript)
+- **Orkestrasi + frontend:** Next.js 16 (App Router, Turbopack, TypeScript, Tailwind 4)
+- **Persistence dashboard:** Upstash Redis (`@upstash/redis`)
+- **Reasoning agent (rencana):** Groq `llama-3.3-70b-versatile` — di luar jalur kepercayaan, tak menyentuh PII
+
+---
+
+## Setup
+
+### Prasyarat
+1. **Akun & developer key Terminal 3** ([claim page](https://www.terminal3.io/claim-page)). Salin key segera — hanya ditampilkan sekali. DID `did:t3n:...` + test token otomatis ter-link.
 2. **Node.js ≥ 18** (disarankan 20 LTS).
-3. **Rust toolchain** (rustup).
+3. **Rust toolchain** + target WASM:
+   ```bash
+   rustup target add wasm32-wasip2
+   ```
 
-## Setup & instalasi
-
+### Environment (`.env.local`)
 ```bash
-# 1. Toolchain Rust + WASM
-rustup target add wasm32-wasip2
-cargo install wasm-tools            # opsional, untuk inspeksi component
+T3N_API_KEY=...            # developer/operator key (akun berkredit)
+AGENT_KEY=...              # signing key agent
+RECIPIENT_KEY=...          # signing key identitas penerima demo (DID tetap)
+GROQ_API_KEY=...           # lapisan agent/LLM (opsional)
+DISBURSE_PERIOD=2026-07    # periode pencairan (ubah untuk demo baru)
 
-# 2. Buat app Next.js
-npx create-next-app@latest bansos-agent   # TypeScript, App Router, Tailwind
-cd bansos-agent
+# Tujuan POST enclave — HARUS base URL app dashboard yang sama (tanpa /api/mock-provider).
+# Default ke httpbin.org bila kosong → baris baru TIDAK akan muncul di dashboard.
+MOCK_PROVIDER_URL=https://trustdrop26.vercel.app
 
-# 3. Dependencies
-npm install @terminal3/t3n-sdk      # SDK inti (Node >= 18)
-npm install groq-sdk                # lapisan agent/LLM
-
-# 4. Repo contoh contract (referensi untuk fork)
-git clone https://github.com/Terminal-3/z-tenant-flight
+# Persistence dashboard (wajib di Vercel; opsional lokal). Salah satu pasangan:
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
+# atau: UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
 ```
 
-Buat `.env.local`:
-
-```bash
-T3N_API_KEY=your_developer_key_from_claim_page
-AGENT_KEY=your_agent_signing_key
-GROQ_API_KEY=your_groq_key
-```
-
-## Struktur proyek (rencana)
-
-```
-bansos-agent/
-├─ contract/                 # TEE contract Rust (fork z-tenant-flight)
-│  ├─ src/
-│  │  ├─ lib.rs              # entry wit-bindgen + dispatch ke tiap fungsi
-│  │  ├─ eligibility.rs      # check-eligibility (no PII)
-│  │  ├─ batch.rs            # prepare-batch (no PII, anti-dobel)
-│  │  └─ disburse.rs         # execute-disbursement (PII via placeholder)
-│  ├─ wit/
-│  │  ├─ world.wit           # export contracts + import host interfaces
-│  │  └─ deps/               # host-interfaces, host-tenant (vendored)
-│  └─ Cargo.toml
-├─ src/
-│  ├─ app/                   # dashboard operator + public audit viewer
-│  └─ lib/
-│     ├─ t3n/                # setup client, register, grant, invoke
-│     └─ agent/              # orkestrasi + Groq
-├─ scripts/
-│  └─ provision.ts           # buat map, seed secret, register, grant
-├─ mock-provider/            # endpoint penyalur tiruan
-└─ data/                     # dataset penerima dummy
-```
+---
 
 ## Menjalankan
 
 ```bash
-# Build contract -> WASM component
-cd contract && cargo build --target wasm32-wasip2 --release
-cd ..
+# Build contract → WASM component (contract/target/wasm32-wasip2/release/bansos_contracts.wasm)
+npm run contract:build
 
-# Provisioning: buat KV map, seed secret, register contract, tandatangani grant
+# Test contract (target native, sebab .cargo/config.toml default ke wasm)
+npm run contract:test            # 8/8 tests
+
+# Provisioning: buat KV map, seed secret/policy/eligibility, register contract, grant
 npm run provision
 
-# Jalankan app + mock provider
-npm run dev
+# Dashboard + mock provider (lokal)
+npm run dev                      # http://localhost:3000
 ```
 
-## Alur demo
+### Demo "money shot" (onboarding penerima + pencairan)
+Jalankan di terminal interaktif (perlu mengetik kode OTP yang masuk ke email):
+```bash
+npx tsx --env-file=.env.local scripts/onboard-recipient.ts <email>
+```
+Tahapannya: auth penerima → (verifikasi OTP bila perlu) → commit profil PII → penerima grant operator → operator cairkan `pii_did=penerima` → **SUCCESS**. Baris baru muncul live di dashboard.
 
-1. Operator mengatur policy (kriteria kelayakan, nominal, anggaran, periode) di dashboard.
-2. Operator memicu run; agent menyusun daftar penerima lewat `check-eligibility` + `prepare-batch`.
-3. Operator menyetujui (human-in-the-loop).
-4. Agent menjalankan `execute-disbursement`; **mock provider menerima detail rekening yang ter-resolve, sementara agent tak pernah melihatnya** — inilah inti demo.
-5. Public audit viewer menampilkan bukti tiap pencairan sesuai scope, tanpa PII.
+> **Tips demo:** untuk melihat **baris baru**, ganti `DISBURSE_PERIOD` (mis. `2026-08`) atau pakai penerima berbeda — contract men-skip penerima+periode yang sudah dicairkan (`SKIPPED_DUPLICATE`).
 
-## Privasi & keamanan
-
-PII penerima dan kredensial penyalur **tidak pernah masuk ke memori agent maupun LLM**. Data sensitif hanya di-resolve di dalam enclave T3N saat panggilan keluar, lewat mekanisme placeholder. Audit ledger menampilkan DID + nominal + status kepatuhan, bukan nama/rekening.
+---
 
 ## Status & disclaimer
 
-Proyek hackathon. Menggunakan **data dummy** (bukan DTKS/Dukcapil) dan **token sandbox** (bukan uang riil). Aturan kelayakan disimulasikan. Bukan sistem produksi pemerintah.
+Proyek hackathon (*Terminal 3 Agent Dev Kit Bounty Challenge*). Menggunakan **data sintetis** (bukan DTKS/Dukcapil) dan **token sandbox** (bukan uang riil). Dua aturan kelayakan (region + income bracket) disimulasikan. Ini demo kapabilitas SDK, **bukan sistem produksi pemerintah**.
 
 ## Lisensi
 
-MIT (atau sesuaikan).
+MIT.

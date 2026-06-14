@@ -80,7 +80,7 @@ export default function Home() {
               TrustDrop
             </div>
             <div className="text-[10px] uppercase tracking-engrave text-ink-faint">
-              Penyaluran Bansos Terverifikasi
+              Verified Social-Aid Disbursement
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function Home() {
             <span
               className={`size-1.5 rounded-full ${live ? "bg-seal seal-pulse" : "bg-ink-faint"}`}
             />
-            {live ? "testnet · live" : "menghubungkan"}
+            {live ? "testnet · live" : "connecting"}
           </span>
         </div>
       </header>
@@ -108,9 +108,9 @@ export default function Home() {
           className="rise font-display text-5xl leading-[0.98] tracking-tight text-ink sm:text-7xl"
           style={{ animationDelay: "60ms" }}
         >
-          Data pribadi warga
+          A citizen&rsquo;s private data
           <br />
-          <span className="text-ink-dim">tak pernah keluar dari</span>{" "}
+          <span className="text-ink-dim">never leaves the</span>{" "}
           <span className="relative whitespace-nowrap text-seal">
             enclave
             <svg
@@ -129,11 +129,20 @@ export default function Home() {
           className="rise mt-7 max-w-2xl text-lg leading-relaxed text-ink-dim"
           style={{ animationDelay: "140ms" }}
         >
-          Agen AI memverifikasi kelayakan dan mencairkan bantuan sosial{" "}
-          <span className="text-ink">atas nama lembaga</span> — tanpa pernah
-          melihat NIK, nama, atau rekening warga. PII di-resolve di dalam{" "}
-          <span className="text-ink">Trusted Execution Environment</span>,
-          dengan jejak audit yang tak bisa diubah.
+          An AI agent verifies eligibility and disburses social aid{" "}
+          <span className="text-ink">on behalf of the institution</span> —
+          without ever seeing a citizen&rsquo;s ID number, name, or bank
+          account. PII is resolved inside a{" "}
+          <span className="text-ink">Trusted Execution Environment</span>, with
+          an audit trail that cannot be altered.
+        </p>
+        <p
+          className="rise mt-6 max-w-2xl border-l-2 border-pii/40 pl-4 text-sm italic leading-relaxed text-ink-faint"
+          style={{ animationDelay: "200ms" }}
+        >
+          Inspired by a real-world problem in Indonesia, where social aid
+          (<span className="not-italic">bansos</span>) doesn&rsquo;t always
+          reach the people it&rsquo;s meant for.
         </p>
       </section>
 
@@ -142,7 +151,7 @@ export default function Home() {
 
       {/* ── Money shot ── */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 sm:px-10">
-        <SectionLabel n="01" title="The money shot" sub="Satu transaksi, dua tingkat keterlihatan" />
+        <SectionLabel n="01" title="The money shot" sub="One transaction, two levels of visibility" />
         <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr]">
           <ProviderView d={latest} />
           <Divider />
@@ -154,21 +163,21 @@ export default function Home() {
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24 sm:px-10">
         <SectionLabel
           n="02"
-          title="Ledger pencairan diterima provider"
-          sub={`${rows.length} transaksi · diperbarui tiap 2.5 dtk`}
+          title="Disbursement ledger received by the provider"
+          sub={`${rows.length} transactions · refreshed every 2.5s`}
         />
         <Ledger rows={rows} fresh={fresh} />
         <p className="mt-5 font-mono text-xs leading-relaxed text-ink-faint">
-          &gt; jalankan{" "}
+          &gt; run{" "}
           <span className="text-ink-dim">
             npx tsx --env-file=.env.local scripts/onboard-recipient.ts &lt;email&gt;
           </span>{" "}
-          → baris baru muncul live di atas saat enclave memanggil provider.
+          → a new row appears live above when the enclave calls the provider.
         </p>
       </section>
 
       <footer className="relative z-10 border-t border-line/60 px-6 py-6 text-center font-mono text-[11px] text-ink-faint sm:px-10">
-        TrustDrop · demo testnet T3N · data sintetis · bukan sistem produksi pemerintah
+        TrustDrop · T3N testnet demo · synthetic data · not a government production system
       </footer>
     </div>
   );
@@ -203,10 +212,10 @@ function SectionLabel({ n, title, sub }: { n: string; title: string; sub: string
 
 function Pipeline() {
   const nodes = [
-    { k: "Operator", d: "Lembaga atur policy & setujui run", pii: false },
-    { k: "Agen AI", d: "Orkestrasi · kirim instruksi", pii: false },
-    { k: "TEE Enclave", d: "Resolve PII · panggil provider", pii: true, seal: true },
-    { k: "Provider", d: "Terima PII ter-resolve", pii: true },
+    { k: "Operator", d: "Institution sets policy & approves the run", pii: false },
+    { k: "AI Agent", d: "Orchestrates · sends instructions", pii: false },
+    { k: "TEE Enclave", d: "Resolves PII · calls provider", pii: true, seal: true },
+    { k: "Provider", d: "Receives resolved PII", pii: true },
   ];
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-6 pb-14 sm:px-10">
@@ -242,7 +251,7 @@ function Pipeline() {
       </div>
       <div className="mt-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-faint">
         <span className="h-px flex-1 bg-line" />
-        garis batas PII — kiri: tak pernah melihat data · kanan: hanya di dalam enclave
+        the PII boundary — left: never sees the data · right: only inside the enclave
         <span className="h-px flex-1 bg-line" />
       </div>
     </section>
@@ -255,11 +264,11 @@ function ProviderView({ d }: { d?: Disbursement }) {
       <Corner color="var(--pii)" />
       <div className="mb-1 flex items-center gap-2">
         <span className="rounded border border-pii/40 bg-pii/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-pii">
-          Di dalam enclave → provider
+          Inside enclave → provider
         </span>
       </div>
-      <h3 className="font-display text-xl text-ink">Yang diterima provider</h3>
-      <p className="mb-5 text-sm text-ink-dim">PII warga, di-resolve host di dalam TEE.</p>
+      <h3 className="font-display text-xl text-ink">What the provider receives</h3>
+      <p className="mb-5 text-sm text-ink-dim">Citizen PII, resolved by the host inside the TEE.</p>
 
       {d ? (
         <dl className="space-y-3 font-mono text-sm">
@@ -281,11 +290,11 @@ function AgentView({ d }: { d?: Disbursement }) {
       <Corner color="var(--seal)" />
       <div className="mb-1 flex items-center gap-2">
         <span className="rounded border border-seal/40 bg-seal/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-seal">
-          Respons ke agen · tersanitasi
+          Response to agent · sanitised
         </span>
       </div>
-      <h3 className="font-display text-xl text-ink">Yang dilihat agen</h3>
-      <p className="mb-5 text-sm text-ink-dim">Hanya status & tx_id. Nol PII.</p>
+      <h3 className="font-display text-xl text-ink">What the agent sees</h3>
+      <p className="mb-5 text-sm text-ink-dim">Only status & tx_id. Zero PII.</p>
 
       {d ? (
         <dl className="space-y-3 font-mono text-sm">
@@ -295,7 +304,7 @@ function AgentView({ d }: { d?: Disbursement }) {
           <div className="flex items-center justify-between border-t border-line/60 pt-3">
             <span className="text-ink-faint">recipient_name</span>
             <span className="rounded bg-vault-800 px-2 py-0.5 text-ink-faint line-through decoration-alert/70">
-              tidak pernah terlihat
+              never seen
             </span>
           </div>
         </dl>
@@ -369,7 +378,7 @@ function Empty({ tone }: { tone: "pii" | "seal" }) {
         tone === "pii" ? "border-pii/25 text-pii/60" : "border-seal/25 text-seal/60"
       }`}
     >
-      menunggu pencairan pertama…
+      awaiting the first disbursement…
     </div>
   );
 }
@@ -378,7 +387,7 @@ function Ledger({ rows, fresh }: { rows: Disbursement[]; fresh: Set<string> }) {
   if (!rows.length) {
     return (
       <div className="rounded-xl border border-dashed border-line py-16 text-center">
-        <p className="font-mono text-sm text-ink-faint">Belum ada pencairan tercatat.</p>
+        <p className="font-mono text-sm text-ink-faint">No disbursements recorded yet.</p>
       </div>
     );
   }
@@ -404,7 +413,7 @@ function Ledger({ rows, fresh }: { rows: Disbursement[]; fresh: Set<string> }) {
           <span className="truncate text-ink-dim">{r.tx_id}</span>
           <span className="text-ink">{rupiah(r.amount)}</span>
           <span className="truncate text-right text-ink-faint">
-            {new Date(r.received_at).toLocaleTimeString("id-ID")}
+            {new Date(r.received_at).toLocaleTimeString("en-US")}
           </span>
         </div>
       ))}

@@ -22,9 +22,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrustDrop — Penyaluran Bansos Terverifikasi",
+  title: "TrustDrop — Verified Social-Aid Disbursement",
   description:
-    "Agen penyalur bansos yang memverifikasi kelayakan & mencairkan dana atas nama lembaga tanpa pernah memegang PII warga — dengan jejak audit yang tak bisa diubah.",
+    "An AI agent that verifies eligibility and disburses social aid on behalf of institutions — without ever holding citizens' PII — with an immutable audit trail. Inspired by a real-world problem in Indonesia, where social aid (bansos) doesn't always reach its intended recipients.",
 };
 
 export default function RootLayout({
@@ -32,7 +32,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
-      lang="id"
+      lang="en"
       className={`${fraunces.variable} ${hanken.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>

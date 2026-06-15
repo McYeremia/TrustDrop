@@ -10,6 +10,11 @@ export async function GET() {
     listApplications(),
     listDisbursements(),
   ]);
+  // Match each provider-recorded payment back to its application to surface which
+  // path paid it ("tee" = live agent→enclave, "system" = hybrid).
+  const sourceByTx = new Map(
+    applications.filter((a) => a.tx_id).map((a) => [a.tx_id as string, a.disbursed_source]),
+  );
   return NextResponse.json({
     decisions: applications.map((a) => ({
       recipient_did: a.recipient_did,
@@ -27,6 +32,7 @@ export async function GET() {
       amount: d.amount,
       period: d.period,
       received_at: d.received_at,
+      source: sourceByTx.get(d.tx_id) ?? null,
     })),
   });
 }

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAgent, executeDisbursements } from "@/lib/agent/agent";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Public demo is open to the world; cap LLM usage per IP so nobody can drain
+// the Groq quota. The agent loop is the expensive path (up to 8 model calls).
+const AGENT_LIMIT = 8; // requests
+const AGENT_WINDOW = 60; // seconds
+const MAX_COMMAND_LEN = 600; // chars — real operator commands are short
 
 // NOTE on the Agent Auth gate: the agent is gated in the UI (AgentPanel stays
 // locked until the operator signs the delegation in AgentAuthPanel), and the
@@ -18,7 +25,7 @@ export async function POST(req: NextRequest) {
     const origin = new URL(req.url).origin;
 
     // Confirmation path: operator approved planned disbursements → execute real money.
-    // Each item is { recipient_did, program_id }.
+    // Each item is { recipient_did, program_id }. No LLM involved, so no limit here.
     if (Array.isArray(body.confirmDisburse) && body.confirmDisburse.length > 0) {
       const executed = await executeDisbursements(body.confirmDisburse, origin);
       return NextResponse.json({ ok: true, executed });
@@ -29,6 +36,22 @@ export async function POST(req: NextRequest) {
     if (!command) {
       return NextResponse.json({ ok: false, error: "command is required" }, { status: 400 });
     }
+    if (command.length > MAX_COMMAND_LEN) {
+      return NextResponse.json(
+        { ok: false, error: `Command too long (max ${MAX_COMMAND_LEN} characters).` },
+        { status: 400 },
+      );
+    }
+
+    // Rate-limit the expensive LLM path per IP (fails open without Redis).
+    const rl = await rateLimit("agent", clientIp(req), AGENT_LIMIT, AGENT_WINDOW);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { ok: false, error: `Too many requests — please wait ${rl.retryAfter}s before trying the agent again.` },
+        { status: 429, headers: { "retry-after": String(rl.retryAfter) } },
+      );
+    }
+
     const result = await runAgent(command, origin);
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {

@@ -1,0 +1,18 @@
+[
+  {
+    "label": "r1",
+    "recipient_did": "did:t3n:3c726f1eb0eeb7b7748fa465830d09d4cf5c802d",
+    "region_code": "JKT",
+    "income_bracket": "low",
+    "household_status": "head_of_family",
+    "program_id": "jkt-cash-2026"
+  },
+  {
+    "label": "r2",
+    "recipient_did": "did:t3n:008011446b81049710ccf94fd743ebeaa7fc79aa",
+    "region_code": "BDG",
+    "income_bracket": "low",
+    "household_status": "head_of_family",
+    "program_id": "bdg-food-2026"
+  }
+]

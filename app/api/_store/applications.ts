@@ -23,6 +23,10 @@ export interface Application {
    *  stays "approved" so existing filters/stats are unaffected. */
   disbursed_at?: string;
   tx_id?: string;
+  /** Evidence: which path paid this — "tee" (agent→enclave) or "system" (hybrid). */
+  disbursed_source?: "tee" | "system";
+  /** Evidence: live contractId that executed the disbursement (TEE path). */
+  contract_id?: number;
 }
 
 const KEY = "trustdrop:applications";

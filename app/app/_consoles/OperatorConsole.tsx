@@ -20,6 +20,8 @@ interface Application {
   status: "pending" | "approved" | "rejected";
   disbursed_at?: string;
   tx_id?: string;
+  disbursed_source?: "tee" | "system";
+  contract_id?: number;
 }
 
 export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRecipient?: () => void }) {
@@ -51,6 +53,20 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
       await fetch("/api/admin/reset", { method: "POST" });
       setLog([]);
       await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function seedDemo() {
+    setBusy("seed");
+    try {
+      const res = await fetch("/api/admin/seed-demo", { method: "POST" });
+      const data = await res.json();
+      pushLog("demo", `loaded live demo recipients: ${(data.seeded ?? []).join(", ") || "none"}`, !!data.ok);
+      await load();
+    } catch (e) {
+      pushLog("demo", `seed error: ${(e as Error).message}`, false);
     } finally {
       setBusy(null);
     }
@@ -101,7 +117,15 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
       <div className="flex items-center justify-between gap-3">
         <SectionLabel n="O" title="Eligibility approvals" sub="Attested attributes only — no PII" />
       </div>
-      <div className="-mt-3 mb-4 flex justify-end">
+      <div className="-mt-3 mb-4 flex justify-end gap-2">
+        <button
+          onClick={seedDemo}
+          disabled={busy !== null}
+          className="rounded-full border border-seal/40 bg-seal/10 px-3 py-1 font-mono text-[11px] text-seal transition hover:bg-seal/20 disabled:opacity-40"
+          title="Load the onboarded demo recipients (r1/r2) as approved — Disburse runs the live agent→TEE path"
+        >
+          ⚡ Load live demo recipients
+        </button>
         <button
           onClick={resetDemo}
           disabled={busy !== null}
@@ -206,8 +230,17 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
                     {shortDid(a.recipient_did)} · <span className="text-seal">{a.tier}</span> · {rupiah(a.amount)}
                   </div>
                   {a.disbursed_at && (
-                    <div className="mt-1 font-mono text-[11px] text-seal">
+                    <div className="mt-1 font-mono text-[11px] text-seal break-all">
                       ✓ paid · {a.tx_id}
+                      {a.disbursed_source === "tee" ? (
+                        <span className="ml-1 rounded border border-seal/40 bg-seal/10 px-1.5 py-0.5 text-[10px] text-seal">
+                          live TEE{a.contract_id ? ` · contract ${a.contract_id}` : ""}
+                        </span>
+                      ) : a.disbursed_source === "system" ? (
+                        <span className="ml-1 rounded border border-line bg-vault-850 px-1.5 py-0.5 text-[10px] text-ink-faint">
+                          system match
+                        </span>
+                      ) : null}
                     </div>
                   )}
                 </div>

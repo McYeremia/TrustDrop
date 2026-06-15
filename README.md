@@ -18,6 +18,27 @@ Dua kekuasaan yang paling sering disalahgunakan dipindahkan dari operator:
 
 Yang tersisa di tangan operator: **satu wewenang akuntabel** — approve/reject kelayakan, dan setiap keputusan tercatat di audit.
 
+## Bukti live (testnet T3N)
+
+Money shot **agent-driven** sudah berjalan nyata di testnet — agent (DID-nya sendiri) mengeksekusi `execute-disbursement` di kontrak TEE di bawah wewenang yang didelegasikan penerima; nama warga ter-resolve **di dalam enclave**, agent tak pernah melihatnya.
+
+| | Nilai |
+|---|---|
+| Kontrak (live) | `z:b6ce0233…:bansos-contracts` **v0.4.0**, contractId **153** (multi-program + re-verifikasi kelayakan di enclave) |
+| Operator DID | `did:t3n:b6ce0233a4da0ee3ab7f41b8423475fa6e93826f` |
+| Agent DID | `did:t3n:699d43e5472b2de992d060bcdc2be6f3513512df` (identitas terpisah; tak pernah pegang kunci/PII) |
+| Pencairan agent | `r1` → `jkt-cash-2026` G2 Rp600k → **SUCCESS** `tx=TX-…-E62LQ4` · `r2` → `bdg-food-2026` FLAT Rp500k → **SUCCESS** `tx=TX-…-0J3NP9` |
+| Biaya terukur | provisioning operator **3573** kredit · `execute-disbursement` **≈201** kredit/panggilan |
+
+**Reproduksi** (butuh `T3N_API_KEY`+`AGENT_KEY` berkredit di `.env.local`):
+
+```bash
+# Money shot agent-driven (onboard 2 penerima + agent cairkan + ukur biaya)
+npx tsx --env-file=.env.local scripts/agent-money-shot.ts <email_r1> <email_r2>
+```
+
+Di **operator console** (`/app`): klik **⚡ Load live demo recipients** → **Disburse** → baris berlabel `live TEE · contract 153` dengan `tx_id` asli. Penerima tanpa identitas T3N otomatis memakai jalur hybrid (`system match`).
+
 ## Masalah yang diangkat
 
 Terinspirasi dari masalah nyata di Indonesia, di mana bansos kadang tidak sampai ke penerima yang berhak. TrustDrop mematikan tiga celah sekaligus, **by design**:

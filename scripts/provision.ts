@@ -69,6 +69,16 @@ function policyRecord(p: ProgramDef) {
   };
 }
 
+/** Read the caller's available credit balance (null if unreadable). */
+async function readBalance(client: T3nClient): Promise<number | null> {
+  try {
+    return (await client.getUsage()).balance?.available ?? null;
+  } catch (e) {
+    console.log(`   (gagal baca saldo) ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 async function main() {
   console.log("🚀 TrustDrop Provisioning Script");
   console.log("================================\n");
@@ -99,6 +109,10 @@ async function main() {
     baseUrl: getNodeUrl(),
     tenantDid,
   });
+
+  // ─── Probe: saldo operator SEBELUM provisioning (ukur biaya) ───
+  const balanceBefore = await readBalance(t3n);
+  console.log(`   💰 Saldo operator (sebelum): ${balanceBefore ?? "?"}`);
 
   // ─── 3. Register contract ───
   console.log("3️⃣  Registering contract...");
@@ -261,6 +275,9 @@ async function main() {
     console.log("   ⚠️  This may be because the contract isn't registered yet or the version doesn't match");
   }
 
+  // ─── Probe: saldo operator SESUDAH provisioning + biaya total ───
+  const balanceAfter = await readBalance(t3n);
+
   // ─── Done ───
   console.log("\n================================");
   console.log("✅ Provisioning complete!");
@@ -270,6 +287,9 @@ async function main() {
   console.log(`Script Name   : ${TENANT_SCRIPT}`);
   console.log(`Period        : ${DISBURSEMENT_PERIOD}`);
   console.log(`Eligibility   : empty (filled via operator approval)`);
+  console.log(`\n💰 Saldo operator: ${balanceBefore ?? "?"} → ${balanceAfter ?? "?"}`);
+  if (balanceBefore != null && balanceAfter != null)
+    console.log(`💸 Biaya provisioning (register+map+seed+grant): ${balanceBefore - balanceAfter} credits`);
   console.log(`\nNext: npm run dev`);
 }
 

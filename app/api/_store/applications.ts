@@ -55,11 +55,19 @@ export async function upsertApplication(a: Application): Promise<void> {
 }
 
 export async function listApplications(): Promise<Application[]> {
-  if (redis) {
-    const h = await redis.hgetall<Record<string, Application>>(KEY);
-    return Object.values(h ?? {});
-  }
-  return [...mem.values()];
+  const all = redis
+    ? Object.values((await redis.hgetall<Record<string, Application>>(KEY)) ?? {})
+    : [...mem.values()];
+  // Stable, deterministic order. Redis hash field order isn't guaranteed between
+  // reads, which made the polling consoles visibly reshuffle rows every refresh.
+  // Sort by creation time, then by composite key as a tiebreaker.
+  return all.sort((a, b) => {
+    const t = (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    if (t !== 0) return t;
+    return appKey(a.recipient_did, a.program_id).localeCompare(
+      appKey(b.recipient_did, b.program_id),
+    );
+  });
 }
 
 export async function getApplication(

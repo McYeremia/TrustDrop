@@ -18,8 +18,8 @@
 //! - `z:<tid>:eligibility`        — PII-FREE eligibility records (recipient_did,
 //!                                  region_code, income_bracket) + `_index`.
 //!                                  This is the ONLY recipient data the contract reads.
-//! - `z:<tid>:policy`             — disbursement policy
-//! - `z:<tid>:disbursed-<period>` — deduplication ledger
+//! - `z:<tid>:policy`             — per-program policy (key = program_id; legacy "current")
+//! - `z:<tid>:disbursed-<program_id>-<period>` — per-program deduplication ledger
 //! - `z:<tid>:audit`              — audit entries (no PII)
 //!
 //! PII (bank account, legal name, NIK) is NOT stored in any contract-read map.
@@ -30,7 +30,7 @@
 
 extern crate alloc;
 
-pub const CONTRACT_VERSION: &str = "0.3.0";
+pub const CONTRACT_VERSION: &str = "0.4.0";
 
 wit_bindgen::generate!({
     world: "tenant-bansos",
@@ -95,7 +95,7 @@ mod tests {
     }
 
     #[test]
-    fn contract_version_is_v0_3_0() {
-        assert_eq!(CONTRACT_VERSION, "0.3.0");
+    fn contract_version_is_v0_4_0() {
+        assert_eq!(CONTRACT_VERSION, "0.4.0");
     }
 }

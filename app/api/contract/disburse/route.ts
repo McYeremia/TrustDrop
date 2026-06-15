@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import recipients from "@/data/recipients.json";
+import { getApplication, upsertApplication } from "@/app/api/_store/applications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,21 @@ interface RecipientProfile {
  */
 export async function POST(req: NextRequest) {
   const b = await req.json();
+
+  // Idempotency: an approved application is paid at most once. Re-clicking
+  // Disburse returns the existing receipt instead of paying the provider again.
+  const existing = b.program_id
+    ? await getApplication(b.recipient_did, b.program_id)
+    : null;
+  if (existing?.disbursed_at) {
+    return NextResponse.json({
+      ok: true,
+      status: "ALREADY_DISBURSED",
+      tx_id: existing.tx_id,
+      disbursed_at: existing.disbursed_at,
+    });
+  }
+
   const profile = (recipients as RecipientProfile[]).find(
     (r) => r.recipient_did === b.recipient_did,
   );
@@ -39,6 +55,16 @@ export async function POST(req: NextRequest) {
     }),
   });
   const provider = await r.json();
+
+  // Mark the application paid so the UI can show it and we don't double-pay.
+  if (existing) {
+    await upsertApplication({
+      ...existing,
+      disbursed_at: new Date().toISOString(),
+      tx_id: provider.tx_id,
+    });
+  }
+
   // Return only the sanitised result to the caller (no name echoed back).
   return NextResponse.json({ ok: true, tx_id: provider.tx_id, status: provider.status });
 }

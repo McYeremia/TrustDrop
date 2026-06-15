@@ -50,7 +50,9 @@ export async function POST(request: NextRequest) {
     // Sanitised response — NO PII echoed back to the caller (the agent).
     return NextResponse.json(
       {
-        status: "success",
+        // Canonical status the rest of the system checks for (matches the real
+        // TEE contract's "SUCCESS"); keep it uppercase so success counts work.
+        status: "SUCCESS",
         tx_id: txId,
         recipient_did: recipient_did ?? null,
         amount: Number(amount) || 0,

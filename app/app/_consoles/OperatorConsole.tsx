@@ -18,6 +18,8 @@ interface Application {
   reason?: string;
   issuers: string[];
   status: "pending" | "approved" | "rejected";
+  disbursed_at?: string;
+  tx_id?: string;
 }
 
 export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRecipient?: () => void }) {
@@ -40,6 +42,18 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
 
   function pushLog(did: string, text: string, ok: boolean) {
     setLog((l) => [{ did, text, ok }, ...l].slice(0, 8));
+  }
+
+  async function resetDemo() {
+    if (!confirm("Clear all applications and the provider ledger? (on-chain contract is untouched)")) return;
+    setBusy("reset");
+    try {
+      await fetch("/api/admin/reset", { method: "POST" });
+      setLog([]);
+      await load();
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function decide(did: string, program_id: string, decision: "approve" | "reject") {
@@ -69,7 +83,9 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      pushLog(did, `${label}: ${JSON.stringify(data.result ?? data)}`, res.ok && data.ok !== false);
+      const src = data.source === "system" ? " · system match (TEE skipped — no testnet credit)"
+        : data.source === "tee" ? " · live TEE" : "";
+      pushLog(did, `${label}: ${JSON.stringify(data.result ?? data)}${src}`, res.ok && data.ok !== false);
     } catch (e) {
       pushLog(did, `${label} error: ${(e as Error).message}`, false);
     } finally {
@@ -82,7 +98,18 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
 
   return (
     <div>
-      <SectionLabel n="O" title="Eligibility approvals" sub="Attested attributes only — no PII" />
+      <div className="flex items-center justify-between gap-3">
+        <SectionLabel n="O" title="Eligibility approvals" sub="Attested attributes only — no PII" />
+      </div>
+      <div className="-mt-3 mb-4 flex justify-end">
+        <button
+          onClick={resetDemo}
+          disabled={busy !== null}
+          className="rounded-full border border-line bg-vault-850 px-3 py-1 font-mono text-[11px] text-ink-faint transition hover:text-alert disabled:opacity-40"
+        >
+          ⟲ Reset demo data
+        </button>
+      </div>
 
       {/* Agent Auth delegation + AI agent */}
       <AgentAuthPanel onChange={setAuthorized} />
@@ -178,13 +205,18 @@ export default function OperatorConsole({ onSwitchToRecipient }: { onSwitchToRec
                   <div className="font-mono text-[11px] text-ink-faint">
                     {shortDid(a.recipient_did)} · <span className="text-seal">{a.tier}</span> · {rupiah(a.amount)}
                   </div>
+                  {a.disbursed_at && (
+                    <div className="mt-1 font-mono text-[11px] text-seal">
+                      ✓ paid · {a.tx_id}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <ActionBtn label="Check eligibility" busy={busy === k + "Check eligibility"}
                     onClick={() => callContract(k + "Check eligibility", a.recipient_did, "/api/contract/check-eligibility", { recipient_did: a.recipient_did, program_id: a.program_id }, "Check eligibility")} />
                   <ActionBtn label="Prepare batch" busy={busy === k + "Prepare batch"}
                     onClick={() => callContract(k + "Prepare batch", a.recipient_did, "/api/contract/prepare-batch", { program_id: a.program_id }, "Prepare batch")} />
-                  <ActionBtn label="Disburse" accent busy={busy === k + "Disburse"}
+                  <ActionBtn label={a.disbursed_at ? "Disbursed" : "Disburse"} accent busy={busy === k + "Disburse"} disabled={!!a.disbursed_at}
                     onClick={() => callContract(k + "Disburse", a.recipient_did, "/api/contract/disburse", { recipient_did: a.recipient_did, program_id: a.program_id, amount: a.amount, tier: a.tier }, "Disburse")} />
                 </div>
               </div>
@@ -221,11 +253,11 @@ function Badge({ text, issuer }: { text: string; issuer: string }) {
   );
 }
 
-function ActionBtn({ label, onClick, busy, accent }: { label: string; onClick: () => void; busy: boolean; accent?: boolean }) {
+function ActionBtn({ label, onClick, busy, accent, disabled }: { label: string; onClick: () => void; busy: boolean; accent?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
-      disabled={busy}
+      disabled={busy || disabled}
       className={`rounded-lg border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition disabled:opacity-40 ${
         accent
           ? "border-pii/40 bg-pii/10 text-pii hover:bg-pii/20"

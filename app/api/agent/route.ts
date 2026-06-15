@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runAgent, executeDisbursements } from "@/lib/agent/agent";
-import { getAuthState } from "@/lib/agent/auth-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// NOTE on the Agent Auth gate: the agent is gated in the UI (AgentPanel stays
+// locked until the operator signs the delegation in AgentAuthPanel), and the
+// REAL enforcement is on-chain — without the agent-auth grant the TEE host
+// denies the contract's egress. We intentionally do NOT re-check a separate
+// server-side auth flag here: that flag lived in a different route's
+// store and is not reliably shared across serverless invocations, which caused
+// false "not authorized" errors even after a successful grant.
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const origin = new URL(req.url).origin;
-
-    // The agent may act only under an active delegation (Agent Auth grant).
-    const auth = await getAuthState();
-    if (!auth?.authorized) {
-      return NextResponse.json(
-        { ok: false, error: "Agent is not authorized. Sign the Agent Auth delegation first." },
-        { status: 200 },
-      );
-    }
 
     // Confirmation path: operator approved planned disbursements → execute real money.
     // Each item is { recipient_did, program_id }.

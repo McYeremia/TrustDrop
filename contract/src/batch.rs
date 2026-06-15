@@ -9,6 +9,9 @@
 #[derive(serde::Deserialize)]
 pub struct PrepareBatchReq {
     pub period: String,
+    /// Which program this batch is for (Fase 5). Empty → legacy single-program.
+    #[serde(default)]
+    pub program_id: String,
     pub policy: BatchPolicy,
 }
 
@@ -16,6 +19,10 @@ pub struct PrepareBatchReq {
 pub struct BatchPolicy {
     pub eligible_regions: alloc::vec::Vec<alloc::string::String>,
     pub eligible_income_brackets: alloc::vec::Vec<alloc::string::String>,
+    #[serde(default)]
+    pub eligible_household_statuses: alloc::vec::Vec<alloc::string::String>,
+    #[serde(default)]
+    pub flat_amount: f64,
     pub total_budget: f64,
 }
 
@@ -71,7 +78,13 @@ use crate::host::{
 fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> {
     let tid = tenant_context::tenant_did();
     let eligibility_map = crate::map_name(&tid, "eligibility");
-    let dedup_map = crate::map_name(&tid, &alloc::format!("disbursed-{}", req.period));
+    // Dedup ledger is per program + period (Fase 5).
+    let dedup_tail = if req.program_id.is_empty() {
+        alloc::format!("disbursed-{}", req.period)
+    } else {
+        alloc::format!("disbursed-{}-{}", req.program_id, req.period)
+    };
+    let dedup_map = crate::map_name(&tid, &dedup_tail);
 
     let _ = logging::info(&alloc::format!(
         "prepare-batch: scanning recipients for period {}, budget {} (amounts from tiers)",
@@ -141,8 +154,13 @@ fn prepare_batch_wasm(req: PrepareBatchReq) -> Result<PrepareBatchResp, String> 
             continue;
         }
 
-        // Amount is decided by the contract's tier rule, NOT by the operator.
-        let amount = match crate::eligibility::assign_tier(&profile.income_bracket, &profile.household_status) {
+        // Optional household-status filter (e.g. elderly-only program).
+        if !crate::eligibility::household_ok(&req.policy.eligible_household_statuses, &profile.household_status) {
+            continue;
+        }
+
+        // Amount is decided by the program policy (flat overrides tier), NOT the operator.
+        let amount = match crate::eligibility::benefit_for(req.policy.flat_amount, &profile.income_bracket, &profile.household_status) {
             Some((_, amount)) => amount,
             None => continue,
         };

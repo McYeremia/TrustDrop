@@ -86,11 +86,14 @@ export const toolDefs = [
     function: {
       name: "check_eligibility",
       description:
-        "Run the TEE contract's check-eligibility on an approved recipient_did. Returns the contract's verdict { eligible, reason_code }. Use this as on-chain proof of eligibility after approving.",
+        "Run the TEE contract's check-eligibility for an approved application (recipient_did + program_id). Returns the contract's verdict { eligible, reason_code }. Use this as on-chain proof of eligibility after approving.",
       parameters: {
         type: "object",
-        properties: { recipient_did: { type: "string" } },
-        required: ["recipient_did"],
+        properties: {
+          recipient_did: { type: "string" },
+          program_id: { type: "string" },
+        },
+        required: ["recipient_did", "program_id"],
       },
     },
   },
@@ -181,7 +184,11 @@ export async function runTool(
         body: JSON.stringify({ recipient_did: args.recipient_did, program_id: args.program_id, decision: "approve" }),
       });
       const j = await r.json();
-      return { ok: j.ok, status: j.status ?? j.error };
+      if (!j.ok)
+        return {
+          error: `${j.reason ?? j.error ?? "approve failed"} — use exact recipient_did + program_id from list_pending_applications`,
+        };
+      return { ok: true, status: j.status };
     }
 
     case "reject_application": {
@@ -191,17 +198,24 @@ export async function runTool(
         body: JSON.stringify({ recipient_did: args.recipient_did, program_id: args.program_id, decision: "reject" }),
       });
       const j = await r.json();
-      return { ok: j.ok, status: j.status ?? j.error };
+      if (!j.ok)
+        return {
+          error: `${j.reason ?? j.error ?? "reject failed"} — use exact recipient_did + program_id from list_pending_applications`,
+        };
+      return { ok: true, status: j.status };
     }
 
     case "check_eligibility": {
       const r = await fetch(`${ctx.origin}/api/contract/check-eligibility`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ recipient_did: args.recipient_did }),
+        body: JSON.stringify({ recipient_did: args.recipient_did, program_id: args.program_id }),
       });
       const j = await r.json();
-      return j.ok ? j.result : { error: j.error };
+      if (!j.ok) return { error: j.error };
+      // Carry the source so the verdict isn't mistaken for a live TEE result
+      // when it came from the deterministic fallback.
+      return { ...j.result, source: j.source };
     }
 
     case "disburse": {

@@ -10,6 +10,9 @@
 #[derive(serde::Deserialize)]
 pub struct CheckEligibilityReq {
     pub recipient_did: String,
+    /// Which program's policy to evaluate against. Empty → legacy key "current".
+    #[serde(default)]
+    pub program_id: String,
 }
 
 #[derive(serde::Serialize)]
@@ -35,12 +38,18 @@ struct EligibilityRecord {
     pub attested: bool,
 }
 
-/// Policy stored in KV.
+/// Policy stored in KV, keyed by `program_id` (Fase 5: one map, many programs).
 #[derive(serde::Deserialize)]
-struct Policy {
+pub(crate) struct Policy {
     pub eligible_regions: alloc::vec::Vec<alloc::string::String>,
     #[serde(default)]
     pub eligible_income_brackets: alloc::vec::Vec<alloc::string::String>,
+    /// Optional extra filter (e.g. elderly-only program). Empty = any household.
+    #[serde(default)]
+    pub eligible_household_statuses: alloc::vec::Vec<alloc::string::String>,
+    /// Flat benefit; when > 0 it overrides the tier rule. 0 = use assign_tier.
+    #[serde(default)]
+    pub flat_amount: f64,
     #[allow(dead_code)]
     #[serde(default)]
     pub total_budget: f64,
@@ -63,6 +72,30 @@ pub fn assign_tier(income_bracket: &str, household_status: &str) -> Option<(&'st
         "medium" => Some(("G3", 400000.0)),
         _ => None,
     }
+}
+
+/// Household-status filter: empty allow-list means every household qualifies.
+pub fn household_ok(allowed: &[alloc::string::String], household_status: &str) -> bool {
+    allowed.is_empty() || allowed.iter().any(|h| h == household_status)
+}
+
+/// Benefit for a program: flat amount overrides the tier rule when set (> 0).
+/// Returns (tier_code, amount), or None if income makes the person ineligible.
+pub fn benefit_for(
+    flat_amount: f64,
+    income_bracket: &str,
+    household_status: &str,
+) -> Option<(alloc::string::String, f64)> {
+    if flat_amount > 0.0 {
+        return Some((alloc::string::String::from("FLAT"), flat_amount));
+    }
+    assign_tier(income_bracket, household_status)
+        .map(|(t, a)| (alloc::string::String::from(t), a))
+}
+
+/// Policy KV key for a program id (legacy fallback to "current").
+pub fn policy_key(program_id: &str) -> &str {
+    if program_id.is_empty() { "current" } else { program_id }
 }
 
 pub fn check_eligibility(input: &[u8]) -> Result<Vec<u8>, String> {
@@ -110,10 +143,11 @@ fn check_eligibility_wasm(req: CheckEligibilityReq) -> Result<CheckEligibilityRe
     let profile: EligibilityRecord = serde_json::from_slice(&record_bytes)
         .map_err(|e| alloc::format!("bad eligibility record: {e}"))?;
 
-    // Read policy from KV
-    let policy_bytes = kv_store::get(&policy_map, b"current")
+    // Read this program's policy from KV (key = program_id, legacy "current").
+    let key = policy_key(&req.program_id);
+    let policy_bytes = kv_store::get(&policy_map, key.as_bytes())
         .map_err(|e| alloc::format!("kv read policy: {e}"))?
-        .ok_or("policy 'current' not found — seed it via provision.ts")?;
+        .ok_or_else(|| alloc::format!("policy '{}' not found — seed it via provision.ts", key))?;
 
     let policy: Policy = serde_json::from_slice(&policy_bytes)
         .map_err(|e| alloc::format!("bad policy: {e}"))?;
@@ -163,8 +197,23 @@ fn check_eligibility_wasm(req: CheckEligibilityReq) -> Result<CheckEligibilityRe
         });
     }
 
-    // Assign tier & amount from the rule (contract decides, not the operator).
-    let (tier, amount) = match assign_tier(&profile.income_bracket, &profile.household_status) {
+    // Optional household-status filter (e.g. elderly-only program).
+    if !household_ok(&policy.eligible_household_statuses, &profile.household_status) {
+        let _ = logging::info(&alloc::format!(
+            "check-eligibility: {} INELIGIBLE — household {} not in {:?}",
+            req.recipient_did, profile.household_status, policy.eligible_household_statuses
+        ));
+        return Ok(CheckEligibilityResp {
+            eligible: false,
+            reason_code: "HOUSEHOLD_MISMATCH".to_string(),
+            recipient_did: req.recipient_did,
+            tier: "".to_string(),
+            amount: 0.0,
+        });
+    }
+
+    // Benefit from the program policy (flat overrides tiers). Contract decides.
+    let (tier, amount) = match benefit_for(policy.flat_amount, &profile.income_bracket, &profile.household_status) {
         Some(t) => t,
         None => {
             return Ok(CheckEligibilityResp {
@@ -235,5 +284,41 @@ mod tests {
     #[test]
     fn tier_none_for_high_income() {
         assert_eq!(assign_tier("high", "elderly"), None);
+    }
+
+    #[test]
+    fn household_ok_empty_allows_all() {
+        assert!(household_ok(&[], "married"));
+        assert!(household_ok(&[], "elderly"));
+    }
+
+    #[test]
+    fn household_ok_filters_when_set() {
+        let allowed = alloc::vec![alloc::string::String::from("elderly")];
+        assert!(household_ok(&allowed, "elderly"));
+        assert!(!household_ok(&allowed, "married"));
+    }
+
+    #[test]
+    fn benefit_flat_overrides_tier() {
+        assert_eq!(
+            benefit_for(300000.0, "low", "married"),
+            Some((alloc::string::String::from("FLAT"), 300000.0))
+        );
+    }
+
+    #[test]
+    fn benefit_falls_back_to_tier_when_no_flat() {
+        assert_eq!(
+            benefit_for(0.0, "low", "elderly"),
+            Some((alloc::string::String::from("G1"), 700000.0))
+        );
+        assert_eq!(benefit_for(0.0, "high", "elderly"), None);
+    }
+
+    #[test]
+    fn policy_key_uses_program_id_or_current() {
+        assert_eq!(policy_key("jkt-cash-2026"), "jkt-cash-2026");
+        assert_eq!(policy_key(""), "current");
     }
 }

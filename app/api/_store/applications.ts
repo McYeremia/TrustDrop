@@ -19,6 +19,10 @@ export interface Application {
   decided_by?: string;
   decided_at?: string;
   created_at: string;
+  /** Set once the provider has been paid (idempotency + UI feedback). Status
+   *  stays "approved" so existing filters/stats are unaffected. */
+  disbursed_at?: string;
+  tx_id?: string;
 }
 
 const KEY = "trustdrop:applications";
@@ -26,8 +30,11 @@ const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = url && token ? new Redis({ url, token }) : null;
 
-// In-memory fallback (local dev / no Redis configured).
-const mem = new Map<string, Application>();
+// In-memory fallback (local dev / no Redis configured). Stored on globalThis so
+// it is shared across route module instances and survives dev hot-reloads —
+// otherwise a write in one route is invisible to a read in another.
+const g = globalThis as unknown as { __trustdrop_apps?: Map<string, Application> };
+const mem: Map<string, Application> = g.__trustdrop_apps ?? (g.__trustdrop_apps = new Map());
 
 /** A citizen may apply to several programs, so applications are keyed per pair. */
 export function appKey(recipient_did: string, program_id: string): string {
@@ -57,7 +64,27 @@ export async function getApplication(
 ): Promise<Application | null> {
   const k = appKey(did, program_id);
   if (redis) {
-    return (await redis.hget<Application>(KEY, k)) ?? null;
+    const exact = await redis.hget<Application>(KEY, k);
+    if (exact) return exact;
+  } else {
+    const exact = mem.get(k);
+    if (exact) return exact;
   }
-  return mem.get(k) ?? null;
+  // Fallback for legacy rows stored before composite keys (no program_id).
+  const all = await listApplications();
+  return (
+    all.find(
+      (a) =>
+        a.recipient_did === did && (a.program_id === program_id || !a.program_id),
+    ) ?? null
+  );
+}
+
+/** Wipe all applications (demo reset). */
+export async function clearApplications(): Promise<void> {
+  if (redis) {
+    await redis.del(KEY);
+    return;
+  }
+  mem.clear();
 }

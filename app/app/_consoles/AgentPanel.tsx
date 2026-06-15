@@ -269,7 +269,7 @@ export default function AgentPanel({
 
 function TranscriptRow({ step }: { step: ToolStep }) {
   const label = TOOL_LABEL[step.tool] ?? step.tool;
-  const did = step.args.recipient_did ? shortDid(String(step.args.recipient_did)) : null;
+  const did = step.args?.recipient_did ? shortDid(String(step.args.recipient_did)) : null;
   const summary = summariseResult(step.tool, step.result);
   const ok = !(step.result && typeof step.result === "object" && "error" in (step.result as object));
 
@@ -290,7 +290,10 @@ function summariseResult(tool: string, result: unknown): string {
   if (result && typeof result === "object") {
     const r = result as Record<string, unknown>;
     if ("error" in r) return String(r.error);
-    if (tool === "check_eligibility") return r.eligible ? "eligible ✓" : `not eligible (${r.reason_code ?? "—"})`;
+    if (tool === "check_eligibility") {
+      const tag = r.source === "system" ? " · system (TEE skipped)" : r.source === "tee" ? " · TEE" : "";
+      return (r.eligible ? "eligible ✓" : `not eligible (${r.reason_code ?? "—"})`) + tag;
+    }
     if (tool === "disburse") return `${r.status} · ${r.tier ?? ""}`;
     if (tool === "approve_application" || tool === "reject_application") return String(r.status ?? "");
     if (tool === "get_audit_summary") return `${r.disbursements} disbursed`;

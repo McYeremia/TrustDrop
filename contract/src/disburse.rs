@@ -8,6 +8,9 @@
 #[derive(serde::Deserialize)]
 pub struct ExecuteDisbursementReq {
     pub period: String,
+    /// Which program this run is for (Fase 5). Empty → legacy single-program.
+    #[serde(default)]
+    pub program_id: String,
     pub approved: alloc::vec::Vec<ApprovedEntry>,
     pub provider_url: String,
 }
@@ -15,7 +18,38 @@ pub struct ExecuteDisbursementReq {
 #[derive(serde::Deserialize)]
 pub struct ApprovedEntry {
     pub recipient_did: String,
+    /// Advisory only — the contract recomputes the authoritative amount from the
+    /// program policy and ignores any operator/agent-supplied figure.
+    #[allow(dead_code)]
+    #[serde(default)]
     pub amount: f64,
+}
+
+/// PII-free eligibility record (mirror of the one in eligibility.rs / batch.rs).
+#[cfg(target_arch = "wasm32")]
+#[derive(serde::Deserialize)]
+struct EligibilityRecord {
+    #[allow(dead_code)]
+    pub recipient_did: String,
+    pub region_code: String,
+    pub income_bracket: String,
+    #[serde(default)]
+    pub household_status: String,
+    #[serde(default)]
+    pub attested: bool,
+}
+
+/// Program policy (mirror of eligibility.rs::Policy) for in-enclave re-verification.
+#[cfg(target_arch = "wasm32")]
+#[derive(serde::Deserialize)]
+struct DisbursePolicy {
+    pub eligible_regions: alloc::vec::Vec<alloc::string::String>,
+    #[serde(default)]
+    pub eligible_income_brackets: alloc::vec::Vec<alloc::string::String>,
+    #[serde(default)]
+    pub eligible_household_statuses: alloc::vec::Vec<alloc::string::String>,
+    #[serde(default)]
+    pub flat_amount: f64,
 }
 
 #[derive(serde::Serialize)]
@@ -71,15 +105,33 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
     use serde_json::json;
 
     let tid = tenant_context::tenant_did();
-    let dedup_map = crate::map_name(&tid, &alloc::format!("disbursed-{}", req.period));
+    // Dedup ledger is per program + period (Fase 5).
+    let dedup_tail = if req.program_id.is_empty() {
+        alloc::format!("disbursed-{}", req.period)
+    } else {
+        alloc::format!("disbursed-{}-{}", req.program_id, req.period)
+    };
+    let dedup_map = crate::map_name(&tid, &dedup_tail);
     let audit_map = crate::map_name(&tid, "audit");
+    let eligibility_map = crate::map_name(&tid, "eligibility");
+    let policy_map = crate::map_name(&tid, "policy");
     let timestamp = tenant_context::cluster_timestamp_secs();
     let seq = tenant_context::seq_no();
     let run_id = alloc::format!("run-{}-{}", req.period, seq);
 
+    // SECURITY: re-verify eligibility inside the enclave against the program's
+    // policy. Never trust an externally-supplied "approved"/"amount" claim — an
+    // agent could otherwise bypass the rules. Load the policy once.
+    let policy_key = crate::eligibility::policy_key(&req.program_id);
+    let policy_bytes = kv_store::get(&policy_map, policy_key.as_bytes())
+        .map_err(|e| alloc::format!("kv read policy: {e}"))?
+        .ok_or_else(|| alloc::format!("policy '{}' not found", policy_key))?;
+    let policy: DisbursePolicy = serde_json::from_slice(&policy_bytes)
+        .map_err(|e| alloc::format!("bad policy: {e}"))?;
+
     let _ = logging::info(&alloc::format!(
-        "execute-disbursement: processing {} recipients via {}",
-        req.approved.len(), req.provider_url
+        "execute-disbursement: processing {} recipients for program '{}' via {}",
+        req.approved.len(), policy_key, req.provider_url
     ));
 
     let mut results = alloc::vec::Vec::new();
@@ -104,6 +156,56 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
             continue;
         }
 
+        // SECURITY: re-verify this recipient against the program policy in-enclave
+        // and recompute the authoritative amount. Ineligible → skip (no payment).
+        let record_bytes = match kv_store::get(&eligibility_map, entry.recipient_did.as_bytes())
+            .map_err(|e| alloc::format!("kv read eligibility: {e}"))? {
+            Some(b) => b,
+            None => {
+                results.push(DisbursementResult {
+                    recipient_did: entry.recipient_did.clone(),
+                    status: "INELIGIBLE_NO_RECORD".to_string(),
+                    tx_id: "".to_string(),
+                });
+                fail_count += 1;
+                continue;
+            }
+        };
+        let profile: EligibilityRecord = match serde_json::from_slice(&record_bytes) {
+            Ok(p) => p,
+            Err(_) => {
+                results.push(DisbursementResult {
+                    recipient_did: entry.recipient_did.clone(),
+                    status: "INELIGIBLE_BAD_RECORD".to_string(),
+                    tx_id: "".to_string(),
+                });
+                fail_count += 1;
+                continue;
+            }
+        };
+
+        let eligible = profile.attested
+            && policy.eligible_regions.contains(&profile.region_code)
+            && policy.eligible_income_brackets.contains(&profile.income_bracket)
+            && crate::eligibility::household_ok(&policy.eligible_household_statuses, &profile.household_status);
+
+        let amount = match (eligible, crate::eligibility::benefit_for(policy.flat_amount, &profile.income_bracket, &profile.household_status)) {
+            (true, Some((_, a))) => a,
+            _ => {
+                let _ = logging::info(&alloc::format!(
+                    "execute-disbursement: {} INELIGIBLE for program — skipping",
+                    entry.recipient_did
+                ));
+                results.push(DisbursementResult {
+                    recipient_did: entry.recipient_did.clone(),
+                    status: "INELIGIBLE".to_string(),
+                    tx_id: "".to_string(),
+                });
+                fail_count += 1;
+                continue;
+            }
+        };
+
         // Build the payment request body using placeholders.
         // The host resolves {{profile.*}} from the BOUND user's profile
         // inside the enclave — PII never enters WASM memory.
@@ -119,10 +221,11 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
         // bound as the user context (their own profile + grant).
         let payment_body = json!({
             "recipient_did": entry.recipient_did,
-            "amount": entry.amount,
+            "amount": amount,
             "currency": "IDR",
             "recipient_name": "{{profile.first_name}} {{profile.last_name}}",
             "period": req.period,
+            "program_id": req.program_id,
             "run_id": run_id,
         });
 
@@ -148,7 +251,7 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
 
                     // Mark as disbursed in dedup ledger
                     let dedup_value = json!({
-                        "amount": entry.amount,
+                        "amount": amount,
                         "tx_id": tx_id,
                         "timestamp": timestamp,
                         "run_id": run_id,
@@ -162,7 +265,7 @@ fn execute_disbursement_wasm(req: ExecuteDisbursementReq) -> Result<ExecuteDisbu
                     // Write audit entry (no PII)
                     let audit = AuditEntry {
                         recipient_did: entry.recipient_did.clone(),
-                        amount: entry.amount,
+                        amount,
                         timestamp,
                         policy_compliant: true,
                         run_id: run_id.clone(),

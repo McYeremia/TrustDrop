@@ -38,8 +38,36 @@ if (!T3N_API_KEY || T3N_API_KEY === "isi_dengan_developer_key_dari_claim_page") 
 }
 
 const CONTRACT_TAIL = "bansos-contracts";
-const CONTRACT_VERSION = "0.3.0"; // 0.3.0 = tiers (G1/G2/G3) + attested-gate; eligibility filled via operator approval
+const CONTRACT_VERSION = "0.4.0"; // 0.4.0 = multi-program (policy keyed by program_id) + in-enclave disburse re-verify
 const DISBURSEMENT_PERIOD = process.env.DISBURSE_PERIOD ?? "2026-07";
+
+interface ProgramDef {
+  program_id: string;
+  name: string;
+  criteria: { regions: string[]; income_brackets: string[]; household_statuses?: string[] };
+  benefit: { mode: "tier" | "flat"; flat_amount?: number };
+  budget: number;
+  period: string;
+}
+
+/** Load the program registry shared with the app (data/programs.json). */
+async function loadPrograms(): Promise<ProgramDef[]> {
+  const raw = await readFile(new URL("../data/programs.json", import.meta.url), "utf8");
+  return JSON.parse(raw) as ProgramDef[];
+}
+
+/** Build the KV policy record the contract expects, from a program definition. */
+function policyRecord(p: ProgramDef) {
+  return {
+    eligible_regions: p.criteria.regions,
+    eligible_income_brackets: p.criteria.income_brackets,
+    eligible_household_statuses: p.criteria.household_statuses ?? [],
+    flat_amount: p.benefit.mode === "flat" ? (p.benefit.flat_amount ?? 0) : 0,
+    total_budget: p.budget,
+    period: p.period,
+    dedup: true,
+  };
+}
 
 async function main() {
   console.log("🚀 TrustDrop Provisioning Script");
@@ -108,7 +136,10 @@ async function main() {
 
   // ─── 4. Create KV maps ───
   console.log("4️⃣  Creating KV maps...");
-  const maps = ["secrets", "eligibility", "policy", `disbursed-${DISBURSEMENT_PERIOD}`, "audit"];
+  const programs = await loadPrograms();
+  // One dedup ledger per program + period (Fase 5).
+  const dedupMaps = programs.map((p) => `disbursed-${p.program_id}-${p.period}`);
+  const maps = ["secrets", "eligibility", "policy", `disbursed-${DISBURSEMENT_PERIOD}`, "audit", ...dedupMaps];
 
   for (const tail of maps) {
     try {
@@ -163,22 +194,31 @@ async function main() {
   });
   console.log("   ✅ eligibility _index initialised to []");
 
-  // ─── 6. Seed default policy (tiers — contract decides amounts) ───
-  console.log("6️⃣  Seeding default policy with benefit tiers...");
-  const defaultPolicy = {
-    eligible_regions: ["JKT", "BDG", "SBY", "SMG"],
-    eligible_income_brackets: ["low", "medium"],
-    total_budget: 50000000,
-    period: DISBURSEMENT_PERIOD,
-    dedup: true,
-    tiers: { G1: 700000, G2: 600000, G3: 400000 },
-  };
+  // ─── 6. Seed per-program policy (key = program_id; contract decides amounts) ───
+  console.log("6️⃣  Seeding per-program policy...");
+  for (const p of programs) {
+    await tenant.executeControl("map-entry-set", {
+      map_name: tenant.canonicalName("policy"),
+      key: p.program_id,
+      value: JSON.stringify(policyRecord(p)),
+    });
+    console.log(`   ✅ policy[${p.program_id}] — ${p.name}`);
+  }
+  // Legacy "current" key kept for backward compatibility (single-program callers).
   await tenant.executeControl("map-entry-set", {
     map_name: tenant.canonicalName("policy"),
     key: "current",
-    value: JSON.stringify(defaultPolicy),
+    value: JSON.stringify({
+      eligible_regions: ["JKT", "BDG", "SBY", "SMG"],
+      eligible_income_brackets: ["low", "medium"],
+      eligible_household_statuses: [],
+      flat_amount: 0,
+      total_budget: 50000000,
+      period: DISBURSEMENT_PERIOD,
+      dedup: true,
+    }),
   });
-  console.log("   ✅ Default policy seeded");
+  console.log("   ✅ legacy policy[current] seeded");
 
   // ─── 7. Seed mock provider "API key" into secrets ───
   console.log("7️⃣  Seeding mock provider key into secrets...");

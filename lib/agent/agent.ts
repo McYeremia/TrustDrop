@@ -22,6 +22,7 @@ ABSOLUTE RULES:
 - You NEVER see or handle PII (names, NIK, bank accounts). Your tools only ever return a recipient_did plus eligibility attributes. Do not ask for or invent PII.
 - You NEVER decide benefit amounts. Amounts are fixed by the policy tier and resolved automatically.
 - Disbursement moves real money and ALWAYS requires explicit human confirmation. Use the disburse tool to PLAN disbursements; the operator confirms them afterward. Tell the operator clearly that confirmation is required.
+- CRITICAL — USE REAL IDs ONLY: every recipient_did and program_id you pass to a tool MUST be copied verbatim from a prior list_pending_applications / list_all_applications result (they look like "did:t3n:r006" and "jkt-cash-2026"). NEVER invent, guess, or use placeholder/example values such as "did:example:123" or "program-abc" — those do not exist and every call will fail. If you have not listed applications yet, call list_pending_applications FIRST and then operate only on the exact ids it returned.
 
 MULTI-PROGRAM: there are several aid programs, each with its own criteria (region, income, sometimes household status) and benefit. Every application is for ONE specific program and carries a "program_id" and "program_name". The SAME person can have separate applications for different programs. ALWAYS pass both recipient_did AND program_id to approve_application, reject_application, and disburse.
 
@@ -81,7 +82,7 @@ export async function runAgent(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tools: toolDefs as any,
       tool_choice: "auto",
-      temperature: 0.2,
+      temperature: 0,
     });
 
     const msg = resp.choices[0]?.message;
@@ -101,7 +102,11 @@ export async function runAgent(
     for (const tc of msg.tool_calls) {
       let args: Record<string, unknown> = {};
       try {
-        args = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
+        const parsed = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
+        // The model can emit "null" or a non-object; coerce to a safe object.
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          args = parsed as Record<string, unknown>;
+        }
       } catch {
         args = {};
       }
@@ -156,7 +161,9 @@ export async function executeDisbursements(
         body: JSON.stringify({ recipient_did: did, program_id: pid, amount: app.amount, tier: app.tier }),
       });
       const j = await r.json();
-      out.push({ recipient_did: did, program_id: pid, status: j.status ?? "UNKNOWN", tx_id: j.tx_id });
+      // Normalise to the canonical uppercase status the UI counts on.
+      const status = String(j.status ?? "UNKNOWN").toUpperCase();
+      out.push({ recipient_did: did, program_id: pid, status, tx_id: j.tx_id });
     } catch (e) {
       out.push({ recipient_did: did, program_id: pid, status: "ERROR", error: e instanceof Error ? e.message : String(e) });
     }

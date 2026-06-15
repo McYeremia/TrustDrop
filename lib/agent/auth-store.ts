@@ -25,11 +25,12 @@ const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = url && token ? new Redis({ url, token }) : null;
 
-let mem: AgentAuthState | null = null;
+// In-memory fallback on globalThis (shared across route modules / hot-reloads).
+const g = globalThis as unknown as { __trustdrop_auth?: AgentAuthState | null };
 
 export async function getAuthState(): Promise<AgentAuthState | null> {
   if (redis) return (await redis.get<AgentAuthState>(KEY)) ?? null;
-  return mem;
+  return g.__trustdrop_auth ?? null;
 }
 
 export async function setAuthState(state: AgentAuthState): Promise<void> {
@@ -37,5 +38,5 @@ export async function setAuthState(state: AgentAuthState): Promise<void> {
     await redis.set(KEY, state);
     return;
   }
-  mem = state;
+  g.__trustdrop_auth = state;
 }

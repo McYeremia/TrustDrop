@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAttestation, type Attestation } from "@/lib/issuer/issuer";
 import { evaluateProgram, getProgram } from "@/lib/eligibility/programs";
-import { upsertApplication } from "@/app/api/_store/applications";
+import { upsertApplication, getApplication } from "@/app/api/_store/applications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,14 +25,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "INVALID_SIGNATURE" }, { status: 400 });
   }
 
-  // One application per chosen program. Eligibility is re-evaluated server-side
-  // (authoritative) per program — the citizen cannot fake the verdict.
+  // One application per program per recipient. Eligibility is re-evaluated
+  // server-side (authoritative) per program — the citizen cannot fake the
+  // verdict. A recipient may apply only once: if an application for this
+  // did+program already exists we DO NOT overwrite it (that would reset an
+  // approved/disbursed row back to pending and allow double-disbursement).
   const created: { program_id: string; eligible: boolean }[] = [];
+  const skipped: { program_id: string; status: string }[] = [];
   for (const pid of programIds) {
     const program = getProgram(pid);
     if (!program) continue;
-    const match = evaluateProgram(program, attrs);
 
+    const existing = await getApplication(recipient_did, pid);
+    if (existing) {
+      skipped.push({ program_id: program.program_id, status: existing.status });
+      continue;
+    }
+
+    const match = evaluateProgram(program, attrs);
     await upsertApplication({
       recipient_did,
       program_id: program.program_id,
@@ -51,5 +61,12 @@ export async function POST(req: NextRequest) {
     created.push({ program_id: program.program_id, eligible: match.eligible });
   }
 
-  return NextResponse.json({ ok: true, count: created.length, created });
+  return NextResponse.json({
+    ok: true,
+    count: created.length,
+    created,
+    skipped,
+    // A clear flag the UI can use when nothing new was created.
+    already_applied: created.length === 0 && skipped.length > 0,
+  });
 }

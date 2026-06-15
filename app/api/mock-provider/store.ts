@@ -42,8 +42,10 @@ const redisUrl = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_U
 const redisToken = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
-// In-memory fallback (local dev / no Redis configured).
-const memory: ReceivedDisbursement[] = [];
+// In-memory fallback (local dev / no Redis configured). On globalThis so it is
+// shared across route modules and survives dev hot-reloads.
+const g = globalThis as unknown as { __trustdrop_disb?: ReceivedDisbursement[] };
+const memory: ReceivedDisbursement[] = g.__trustdrop_disb ?? (g.__trustdrop_disb = []);
 
 export async function recordDisbursement(entry: ReceivedDisbursement): Promise<void> {
   if (redis) {

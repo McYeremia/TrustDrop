@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SiteNav } from "@/app/_ui/SiteNav";
 import { SiteFooter } from "@/app/_ui/SiteFooter";
+import { PageBackground } from "@/app/_ui/PageBackground";
 
 export const metadata: Metadata = {
   title: "How it works — TrustDrop",
@@ -19,27 +20,27 @@ const PIPELINE = [
 const STEPS = [
   {
     k: "Apply",
-    d: "The citizen proves identity with their NIK. Issuers (tax office, civil registry) sign their TRUE attributes with ed25519. No file upload, no self-declaration.",
+    d: "The citizen proves identity by NIK. Issuers sign their true attributes with ed25519 — no uploads, no self-declaration.",
   },
   {
     k: "Preview",
-    d: 'Signatures are verified instantly — "looks eligible: Tier G1, Rp 700,000" or "not eligible". Transparent, but not yet binding.',
+    d: 'Signatures verify instantly — "eligible: Tier G1, Rp 700,000" or "not eligible". Transparent, not yet binding.',
   },
   {
     k: "Approve",
-    d: "The operator sees attested attributes only — badges like ✓ income=low · Tax Office — never the raw salary, never the name. One accountable click: approve or reject.",
+    d: "The operator sees attested attributes only (✓ income=low · Tax Office) — never the salary or name. One click: approve or reject.",
   },
   {
     k: "Decide",
-    d: "check-eligibility runs in the contract and assigns the tier & amount from the policy rule. The operator never types a number.",
+    d: "check-eligibility runs in the contract and sets the tier & amount by policy. The operator never types a number.",
   },
   {
     k: "Disburse",
-    d: "The enclave resolves the citizen's name and pays the provider. The agent receives only a tx_id and status — the name is sanitised out.",
+    d: "The enclave resolves the name and pays the provider. The agent gets back only a tx_id and status.",
   },
   {
     k: "Receive",
-    d: "The recipient sees their aid landed. Every decision and payment is sealed to an immutable, PII-free audit trail.",
+    d: "The aid lands. Every decision and payment is sealed to an immutable, PII-free audit trail.",
   },
 ];
 
@@ -62,6 +63,8 @@ export default function HowItWorks() {
       className="grain relative min-h-screen overflow-x-hidden"
       style={{ background: "#080808" }}
     >
+      <PageBackground />
+
       <SiteNav />
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
@@ -88,9 +91,9 @@ export default function HowItWorks() {
             seeing a name.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: "#8a8a8a" }}>
-            The agent and operator only ever send instructions. The Trusted
-            Execution Environment resolves identity, calls the provider, and
-            sanitises the response — so PII never crosses into untrusted hands.
+            The agent and operator only send instructions. The enclave resolves
+            identity, pays the provider, and sanitises the response — so PII
+            never reaches untrusted hands.
           </p>
         </div>
       </section>
@@ -138,7 +141,7 @@ export default function HowItWorks() {
           style={{ color: "#444" }}
         >
           <span className="h-px flex-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-          the PII boundary — left: never sees the data · right: only inside the enclave
+the PII boundary — left: never sees data · right: enclave only
           <span className="h-px flex-1" style={{ background: "rgba(255,255,255,0.07)" }} />
         </div>
       </section>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SiteNav } from "@/app/_ui/SiteNav";
 import { SiteFooter } from "@/app/_ui/SiteFooter";
+import { PageBackground } from "@/app/_ui/PageBackground";
 import { rupiah, shortDid, Field, Corner, Empty } from "@/app/_ui/primitives";
 
 interface Disbursement {
@@ -61,6 +62,8 @@ export default function DemoPage() {
       className="grain relative min-h-screen overflow-x-hidden"
       style={{ background: "#080808" }}
     >
+      <PageBackground />
+
       <SiteNav />
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
@@ -76,7 +79,7 @@ export default function DemoPage() {
             filter: "blur(60px)",
           }}
         />
-        <div className="relative z-10 mx-auto max-w-6xl px-6 pb-10 pt-20 sm:px-10">
+        <div className="relative z-10 mx-auto max-w-6xl px-6 pb-14 pt-20 sm:px-10">
           <div className="flex flex-wrap items-center gap-3">
             <span className="font-mono text-xs uppercase tracking-wider text-seal">
               Live demo
@@ -104,21 +107,20 @@ export default function DemoPage() {
             <span className="gold-shine gold-glow">two levels</span> of visibility.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: "#8a8a8a" }}>
-            The same disbursement, seen from both sides of the PII boundary. The
-            provider receives the citizen&rsquo;s real name; the agent receives
-            only a transaction id. Run a disbursement from the{" "}
+            One disbursement, both sides of the PII boundary — the provider gets
+            the real name, the agent only a tx_id. Run one from the{" "}
             <Link href="/app" className="text-seal underline-offset-4 hover:underline">
               operator console
-            </Link>{" "}
-            and watch a new row appear below.
+            </Link>
+            .
           </p>
         </div>
       </section>
 
       {/* ── Try it CTA ───────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 sm:px-10">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-12 sm:px-10">
         <div
-          className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5"
+          className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-6"
           style={{ borderColor: "rgba(240,169,59,0.18)", background: "rgba(240,169,59,0.04)" }}
         >
           <div>
@@ -147,8 +149,8 @@ export default function DemoPage() {
       </section>
 
       {/* ── Money shot ───────────────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-12 sm:px-10">
-        <div className="grid gap-4 lg:grid-cols-[1fr_auto_1fr]">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20 sm:px-10">
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto_1fr]">
           <ProviderView d={latest} />
           <Divider />
           <AgentView d={latest} />
@@ -179,7 +181,7 @@ export default function DemoPage() {
 function ProviderView({ d }: { d?: Disbursement }) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl p-6"
+      className="relative overflow-hidden rounded-2xl p-7"
       style={{
         background: "linear-gradient(to bottom, rgba(240,169,59,0.07), transparent)",
         border: "1px solid rgba(240,169,59,0.3)",
@@ -201,7 +203,7 @@ function ProviderView({ d }: { d?: Disbursement }) {
         Citizen PII, resolved by the host inside the TEE.
       </p>
       {d ? (
-        <dl className="space-y-3 font-mono text-sm">
+        <dl className="space-y-3.5 font-mono text-sm">
           <Field label="recipient_name" value={d.recipient_name} pii />
           <Field label="amount" value={rupiah(d.amount)} />
           <Field label="recipient_did" value={shortDid(d.recipient_did)} dim />
@@ -217,7 +219,7 @@ function ProviderView({ d }: { d?: Disbursement }) {
 function AgentView({ d }: { d?: Disbursement }) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl p-6"
+      className="relative overflow-hidden rounded-2xl p-7"
       style={{
         background: "linear-gradient(to bottom, rgba(240,169,59,0.05), transparent)",
         border: "1px solid rgba(240,169,59,0.2)",
@@ -238,7 +240,7 @@ function AgentView({ d }: { d?: Disbursement }) {
         Only status &amp; tx_id. Zero PII.
       </p>
       {d ? (
-        <dl className="space-y-3 font-mono text-sm">
+        <dl className="space-y-3.5 font-mono text-sm">
           <Field label="status" value="SUCCESS" seal />
           <Field label="tx_id" value={d.tx_id} />
           <Field label="recipient_did" value={shortDid(d.recipient_did)} dim />

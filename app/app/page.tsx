@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SiteNav } from "@/app/_ui/SiteNav";
 import { SiteFooter } from "@/app/_ui/SiteFooter";
+import { PageBackground } from "@/app/_ui/PageBackground";
 import RecipientConsole from "./_consoles/RecipientConsole";
 import OperatorConsole from "./_consoles/OperatorConsole";
 import AuditorConsole from "./_consoles/AuditorConsole";
@@ -27,11 +28,11 @@ const ROLES: {
     label: "Recipient",
     sub: "Warga · Citizen",
     description:
-      "Prove your identity via issuer attestation, check eligibility, and submit an aid application — no file uploads, no PII handed to anyone.",
+      "Prove identity by attestation, see your eligibility, and apply — no uploads, no PII handed over.",
     caps: [
-      "Request attestation from Tax Office & Civil Registry",
-      "See tier & amount before you apply",
-      "Submit application sealed inside the enclave",
+      "Attest via Tax Office & Civil Registry",
+      "See tier & amount before applying",
+      "Apply, sealed inside the enclave",
     ],
     badge: "Privacy-first",
     badgeColor: "rgba(240,169,59,0.15)",
@@ -61,11 +62,11 @@ const ROLES: {
     label: "Operator",
     sub: "Lembaga · Institution",
     description:
-      "Review attested eligibility data — not raw PII — and trigger disbursements. The enclave resolves identity; you only approve the policy.",
+      "Review attested attributes — not PII — and approve disbursements. The enclave resolves identity; you approve policy.",
     caps: [
-      "Review pending applications (attested attributes only)",
-      "Approve or reject based on verified claims",
-      "Trigger disbursement — name stays in enclave",
+      "Review pending applications (attributes only)",
+      "Approve or reject verified claims",
+      "Disburse — name stays in the enclave",
     ],
     badge: "Zero PII",
     badgeColor: "rgba(232,101,79,0.12)",
@@ -85,11 +86,11 @@ const ROLES: {
     label: "Auditor",
     sub: "Publik · Public",
     description:
-      "Read the immutable, public ledger of every decision and disbursement. Fully verifiable — and completely free of citizen PII.",
+      "Read the immutable public ledger of every decision and payment — fully verifiable, zero PII.",
     caps: [
-      "Browse approval & rejection decisions",
-      "Verify disbursement amounts and tx IDs",
-      "Confirm zero PII appears in any entry",
+      "Browse approvals & rejections",
+      "Verify amounts and tx IDs",
+      "Confirm zero PII in any entry",
     ],
     badge: "Public ledger",
     badgeColor: "rgba(100,180,255,0.12)",
@@ -133,31 +134,7 @@ export default function ConsolePage() {
       className="grain relative min-h-screen overflow-x-hidden"
       style={{ background: "#080808" }}
     >
-      {/* Gold grid pattern */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 top-14"
-        style={{
-          height: 300,
-          backgroundImage:
-            "linear-gradient(to right, rgba(240,169,59,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(240,169,59,0.04) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-          WebkitMaskImage: "radial-gradient(circle at 50% 0%, black, transparent 75%)",
-          maskImage: "radial-gradient(circle at 50% 0%, black, transparent 75%)",
-        }}
-      />
-
-      {/* Ambient gold glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 rounded-full"
-        style={{
-          width: 600,
-          height: 300,
-          background: "radial-gradient(ellipse, rgba(240,169,59,0.07), transparent 70%)",
-          filter: "blur(80px)",
-        }}
-      />
+      <PageBackground />
 
       <SiteNav />
 
